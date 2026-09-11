@@ -149,7 +149,7 @@ export default function Login() {
           Automotive Inventory and Point-of-Sale Intelligence System
         </p>
         
-        <div className="right-container"></div>
+        <div className="right-container">
         <p className="login-right__tagline">Auto parts, organized</p>
 
         <h2 className="login-right__headline">
@@ -184,6 +184,7 @@ export default function Login() {
             </li>
           ))}
         </ul>
+        </div>
       </div>
     </div>
   );

@@ -257,7 +257,7 @@
 
 .login-logo__img {
   position: relative;
-  top: -150px;
+  top: -130px;
   width: 140%;
   height: auto;
   object-fit: contain;
@@ -265,13 +265,13 @@
 
 .login-right-subtitle{
   position: relative;
-  top: -130px;
+  top: -120px;
  
 }
 
 .login-right__system-name {
   position: relative;
-  top: -130px;
+  top: -120px;
   left: 40px;
   font-size: 13px;
   font-weight: bold;
@@ -279,15 +279,23 @@
   text-transform: uppercase;
 }
 
+.right-container{
+  position: relative;
+  left: 40px;
+  top: -65px;
+}
+
 .login-right__tagline {
-  font-size: 15px;
+  position: relative;
+  top: -20px;
+  font-size: 25px;
   color: #3dd0c0;
   font-weight: 400;
   margin: 0 0 12px 0;
 }
 
 .login-right__headline {
-  font-size: 42px;
+  font-size: 55px;
   font-weight: 700;
   color: #ffffff;
   line-height: 1.2;
