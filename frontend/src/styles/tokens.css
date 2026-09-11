@@ -1,0 +1,67 @@
+/*
+  Design tokens for the Trimidal Parts & POS Intelligence System.
+
+  Direction: a working-bay, after-hours-garage feel rather than a generic
+  SaaS dashboard — deep graphite surfaces, hairline dividers instead of
+  card shadows, and a single safety-orange accent used the way it's used
+  on shop equipment: sparingly, to mark the one thing that matters.
+*/
+
+:root {
+  /* Surfaces */
+  --color-bg-base: #14171c;
+  --color-bg-panel: #1b1f26;
+  --color-bg-elevated: #232830;
+  --color-border: #333a45;
+  --color-border-strong: #454e5c;
+
+  /* Text */
+  --color-text-primary: #f1f2f4;
+  --color-text-secondary: #b6bdc9;
+  --color-text-muted: #7c8494;
+
+  /* Accent — used only for the single most important action or status */
+  --color-accent: #e8853a;
+  --color-accent-hover: #f2954f;
+  --color-accent-muted: #ad5c22;
+  --color-accent-soft: rgba(232, 133, 58, 0.12);
+
+  /* Status */
+  --color-success: #4caf7d;
+  --color-danger: #e15252;
+  --color-danger-soft: rgba(225, 82, 82, 0.12);
+
+  /* Type */
+  --font-display: "Space Grotesk", "Segoe UI", sans-serif;
+  --font-body: "Inter", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+  /* Scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2rem;
+  --text-3xl: 2.75rem;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+}

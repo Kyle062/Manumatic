@@ -1,0 +1,298 @@
+.login-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  /* Darker, smoother gradient matching target */
+  background: linear-gradient(135deg, #072a24 0%, #0c3f37 50%, #061d19 100%);
+  font-family: "Inter", sans-serif;
+}
+
+/* Center radial glow behind mascot */
+.login-page__glow {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 60vw;
+  height: 60vh;
+  background: radial-gradient(
+    circle,
+    rgba(23, 100, 88, 0.4) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── 1. WHITE BLOB CONTAINER ── */
+.login-blob {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48vw; /* Spans the left portion */
+  height: 100vh;
+  z-index: 1;
+}
+
+.login-blob__img {
+  position: relative;
+  top: 70px;
+  left: 0px;
+  width: 120%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left center; /* Anchors shape to the left edge */
+}
+
+/* ── 2. LOGIN FORM ── */
+.login-form {
+  position: absolute;
+  left: 5%;
+  top: 47%;
+  transform: translateY(-50%);
+  width: 24vw; /* Controls form width inside the white blob */
+  z-index: 10;
+}
+
+.login-form__title {
+  font-size: 38px;
+  font-weight: 800;
+  color: #176458;
+  margin: 0 0 6px 0;
+  text-align: center;
+}
+
+.login-form__subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 15px 0;
+  font-weight: 400;
+  text-align: center;
+}
+
+/* Role tabs */
+.login-tabs {
+  display: flex;
+  background: #e5e7eb;
+  border-radius: 9999px;
+  padding: 4px;
+  margin-bottom: 24px;
+}
+
+.login-tabs__btn {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  font-family: "Inter", sans-serif;
+  transition: all 0.2s ease;
+}
+
+.login-tabs__btn--active {
+  background: #176458;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.login-tabs__btn--inactive {
+  background: transparent;
+  color: #6b7280;
+}
+
+/* Fields */
+.login-field {
+  margin-bottom: 16px;
+}
+
+.login-field label {
+  display: block;
+  font-size: 11px;
+  color: #374151;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.login-field input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 11px 12px;
+  font-size: 13px;
+  color: #111827;
+  background: #ffffff;
+  outline: none;
+  font-family: "Inter", sans-serif;
+  transition: border-color 0.2s;
+}
+
+.login-field input:focus {
+  border-color: #176458;
+}
+
+/* Password wrapper */
+.login-field__pw-wrap {
+  position: relative;
+}
+
+.login-field__pw-wrap input {
+  padding-right: 36px;
+}
+
+.login-field__eye {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.login-field__eye:hover {
+  color: #4b5563;
+}
+
+.login-forgot {
+  text-align: right;
+  margin-top: -6px;
+  margin-bottom: 24px;
+}
+
+.login-forgot a {
+  font-size: 10px;
+  color: #4b5563;
+  text-decoration: none;
+  font-style: italic;
+}
+
+.login-forgot a:hover {
+  color: #176458;
+}
+
+/* Login button */
+.login-btn {
+  width: 100%;
+  padding: 13px 0;
+  background: #176458;
+  color: #ffffff;
+  border: none;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: "Inter", sans-serif;
+  transition: background-color 0.2s;
+}
+
+.login-btn:hover {
+  background: #135349;
+}
+
+/* ── 3. AUTO PARTS ── */
+.login-autoparts {
+  position: absolute;
+  left: -2vw;
+  bottom: -2vh;
+  width: 33vw; /* Scales size appropriately */
+  z-index: 15;
+}
+
+.login-autoparts__img {
+  width: 120%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* ── 4. MASCOT ── */
+.login-mascot {
+  position: absolute;
+  left: 50%;
+  bottom: 0; /* Anchors the mascot directly to the bottom */
+  transform: translateX(-55%);
+  height: 90vh; /* Large height matching target */
+  display: flex;
+  align-items: flex-end;
+  z-index: 20; /* Places mascot in front of auto parts and blob */
+}
+
+.login-mascot__img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
+}
+
+/* ── RIGHT SIDE TEXT & LOGO ── */
+.login-right {
+  position: absolute;
+  right: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36vw;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+
+/* MANUMATIK logo */
+.login-logo {
+  width: 75%;
+  max-width: 420px;
+  margin-bottom: -10px; /* Pulls tagline closer to the logo */
+}
+
+.login-logo__img {
+  width: 140%;
+  height: auto;
+  object-fit: contain;
+}
+
+.login-right__system-name {
+  display: none; /* Subtitle is baked into the Signage.png logo in the target design */
+}
+
+.login-right__tagline {
+  font-size: 15px;
+  color: #3dd0c0;
+  font-weight: 400;
+  margin: 0 0 12px 0;
+}
+
+.login-right__headline {
+  font-size: 42px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  margin: 0 0 24px 0;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.login-right__bullets {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-right__bullet {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #3dd0c0;
+  font-size: 14px;
+  font-weight: 400;
+}
