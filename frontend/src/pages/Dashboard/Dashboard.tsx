@@ -4,8 +4,8 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import { AlertTriangle, Receipt, Activity, ArrowRight } from "lucide-react";
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -13,6 +13,9 @@ import {
   CartesianGrid,
 } from "recharts";
 import "./Dashboard.css";
+
+import DashboardImg1 from "../../assets/images/DashboardImg1.png";
+import DashboardImg2 from "../../assets/images/DashboardImg2.png";
 
 // ============================================================
 // MOCK DATA
@@ -27,7 +30,6 @@ const analytics = {
   unitsOnHand: 234,
 };
 
-// Sample weekly sales data for the chart
 const salesTrend = [
   { day: "Mon", sales: 1200 },
   { day: "Tue", sales: 2100 },
@@ -83,6 +85,15 @@ const recentTransactions = [
   },
 ];
 
+const activityLogs = [
+  { time: "10:42", text: "System Admin processed sale RCP-16331" },
+  { time: "10:15", text: "Store Manager updated stock for P-1002" },
+  { time: "09:58", text: "System Admin added new part P-1012" },
+  { time: "09:30", text: "Store Manager processed sale RCP-16330" },
+  { time: "08:55", text: "System Admin logged in" },
+  { time: "08:40", text: "Daily backup completed successfully" },
+];
+
 // ============================================================
 // COMPONENT
 // ============================================================
@@ -110,15 +121,37 @@ export default function Dashboard() {
           <div className="dash-row-top">
             {/* Analytics */}
             <div className="dash-card dash-analytics">
-              <h2 className="dash-card__title">Analytics</h2>
+              <div className="dash-card__head">
+                <h2 className="dash-card__title">Analytics</h2>
+                <span className="dash-card__hint">Last 7 days</span>
+              </div>
 
-              {/* Mini chart */}
               <div className="analytics-chart">
-                <ResponsiveContainer width="100%" height={110}>
-                  <LineChart
+                <ResponsiveContainer width="100%" height={140}>
+                  <AreaChart
                     data={salesTrend}
-                    margin={{ top: 6, right: 12, bottom: 0, left: -20 }}
+                    margin={{ top: 8, right: 12, bottom: 0, left: -20 }}
                   >
+                    <defs>
+                      <linearGradient
+                        id="salesFill"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#0f6b5c"
+                          stopOpacity={0.28}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#0f6b5c"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
                     <CartesianGrid
                       strokeDasharray="3 3"
                       stroke="#eef0f3"
@@ -138,26 +171,27 @@ export default function Dashboard() {
                     <Tooltip
                       contentStyle={{
                         fontSize: 12,
-                        borderRadius: 6,
+                        borderRadius: 8,
                         border: "1px solid #e5e7eb",
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
                       }}
                       formatter={(value) =>
                         "₱" + Number(value).toLocaleString()
                       }
                     />
-                    <Line
+                    <Area
                       type="monotone"
                       dataKey="sales"
                       stroke="#0f6b5c"
                       strokeWidth={2.5}
+                      fill="url(#salesFill)"
                       dot={{ r: 3, fill: "#0f6b5c" }}
                       activeDot={{ r: 5 }}
                     />
-                  </LineChart>
+                  </AreaChart>
                 </ResponsiveContainer>
               </div>
 
-              {/* Stats */}
               <div className="analytics-list">
                 <div className="analytics-item">
                   <div className="analytics-item__label">Today's sales</div>
@@ -205,7 +239,12 @@ export default function Dashboard() {
 
             {/* Needs Reordering */}
             <div className="dash-card dash-reorder">
-              <h2 className="dash-card__title">Needs reordering</h2>
+              <div className="dash-card__head">
+                <h2 className="dash-card__title">Needs reordering</h2>
+                <span className="dash-badge-count">
+                  {needsReordering.length}
+                </span>
+              </div>
 
               <div className="reorder-list">
                 {needsReordering.map((item) => (
@@ -239,51 +278,69 @@ export default function Dashboard() {
 
           {/* ROW 2: Recent Transactions + Activity Logs */}
           <div className="dash-row-bottom">
+            {/* Recent Transactions */}
             <div className="dash-card dash-transactions">
               <div className="dash-card__subtitle-row">
                 <Receipt size={14} />
                 <span>Recent transactions</span>
               </div>
 
-              <table className="txn-table">
-                <thead>
-                  <tr>
-                    <th>RECEIPT</th>
-                    <th>CUSTOMER</th>
-                    <th>DATE</th>
-                    <th className="txn-right">TOTAL</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentTransactions.map((txn) => (
-                    <tr key={txn.receipt}>
-                      <td>{txn.receipt}</td>
-                      <td>{txn.customer}</td>
-                      <td>{txn.date}</td>
-                      <td className="txn-right">{money(txn.total)}</td>
+              <div className="txn-scroll">
+                <table className="txn-table">
+                  <thead>
+                    <tr>
+                      <th>RECEIPT</th>
+                      <th>CUSTOMER</th>
+                      <th>DATE</th>
+                      <th className="txn-right">TOTAL</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {recentTransactions.map((txn) => (
+                      <tr key={txn.receipt}>
+                        <td>{txn.receipt}</td>
+                        <td>{txn.customer}</td>
+                        <td>{txn.date}</td>
+                        <td className="txn-right">{money(txn.total)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
+            {/* Activity Logs */}
             <div className="dash-card dash-logs">
               <div className="dash-card__subtitle-row dash-card__subtitle-row--light">
                 <Activity size={14} />
                 <span>Activity Logs</span>
               </div>
-              <div className="dash-logs__body" />
+
+              <div className="logs-scroll">
+                <ul className="logs-list">
+                  {activityLogs.map((log, i) => (
+                    <li className="log-item" key={i}>
+                      <span className="log-item__time">{log.time}</span>
+                      <span className="log-item__text">{log.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
 
-          {/* ROW 3: Placeholder Banners */}
+          {/* ROW 3: Banners */}
           <div className="dash-banners">
-            <div className="dash-banner-placeholder">
-              <span>Banner 1 — Car Service</span>
-            </div>
-            <div className="dash-banner-placeholder">
-              <span>Banner 2 — Motorcycle Repair</span>
-            </div>
+            <img
+              src={DashboardImg1}
+              alt="Banner 1 — Car Service"
+              className="dash-banner-img"
+            />
+            <img
+              src={DashboardImg2}
+              alt="Banner 2 — Motorcycle Repair"
+              className="dash-banner-img"
+            />
           </div>
         </div>
       </div>
