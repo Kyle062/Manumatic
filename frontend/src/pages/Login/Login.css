@@ -3,9 +3,10 @@
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  /* Darker, smoother gradient matching target */
   background: linear-gradient(135deg, #072a24 0%, #0c3f37 50%, #061d19 100%);
   font-family: "Inter", sans-serif;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 /* Center radial glow behind mascot */
@@ -23,6 +24,7 @@
   );
   pointer-events: none;
   z-index: 0;
+  
 }
 
 /* ── 1. WHITE BLOB CONTAINER ── */
@@ -197,8 +199,27 @@
   transition: background-color 0.2s;
 }
 
-.login-btn:hover {
+.login-btn:hover:not(:disabled) {
   background: #135349;
+}
+
+.login-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: #135349;
+}
+
+/* Login error message */
+.login-error {
+  background: #fee;
+  color: #dc3545;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 16px;
+  text-align: center;
+  border: 1px solid #fcc;
+  font-weight: 500;
 }
 
 /* ── 3. AUTO PARTS ── */
@@ -246,8 +267,6 @@
   flex-direction: column;
 }
 
-
-
 /* MANUMATIK logo */
 .login-logo {
   width: 75%;
@@ -263,10 +282,9 @@
   object-fit: contain;
 }
 
-.login-right-subtitle{
+.login-right-subtitle {
   position: relative;
   top: -120px;
- 
 }
 
 .login-right__system-name {
@@ -275,11 +293,12 @@
   left: 40px;
   font-size: 13px;
   font-weight: bold;
-  font-family: 'Host Grotesk';
+  font-family: "Host Grotesk";
   text-transform: uppercase;
+  color: white;
 }
 
-.right-container{
+.right-container {
   position: relative;
   left: 40px;
   top: -65px;
@@ -319,4 +338,91 @@
   color: #3dd0c0;
   font-size: 14px;
   font-weight: 400;
+}
+
+/* ============================================================
+   RESPONSIVE — MOBILE & TABLET
+   ============================================================ */
+
+/* Tablet (portrait) and small laptops */
+@media (max-width: 1024px) {
+  .login-blob {
+    width: 100vw;
+    height: 100vh;
+  }
+
+  .login-blob__img {
+    width: 100%;
+    height: 100%;
+    object-position: center;
+    top: 0;
+  }
+
+  .login-form {
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 60vw;
+    max-width: 420px;
+  }
+
+  .login-right,
+  .login-mascot,
+  .login-autoparts {
+    display: none;
+  }
+
+  .login-page__glow {
+    width: 90vw;
+    height: 60vh;
+  }
+}
+
+/* Phones */
+@media (max-width: 600px) {
+  .login-form {
+    width: 88vw;
+    max-width: 100%;
+    padding: 0 4px;
+  }
+
+  .login-form__title {
+    font-size: 28px;
+  }
+
+  .login-form__subtitle {
+    font-size: 12px;
+  }
+
+  .login-tabs__btn {
+    font-size: 10px;
+    padding: 9px 0;
+  }
+
+  .login-field input {
+    font-size: 14px; /* Prevents iOS zoom on focus */
+    padding: 12px;
+  }
+
+  .login-btn {
+    padding: 14px 0;
+    font-size: 12px;
+  }
+
+  .login-error {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 380px) {
+  .login-form__title {
+    font-size: 24px;
+  }
+
+  .login-tabs__btn {
+    font-size: 9px;
+    letter-spacing: 0.05em;
+  }
 }

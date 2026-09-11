@@ -9,8 +9,13 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          {/* Default → Login */}
           <Route path="/" element={<Navigate to="/login" replace />} />
+
+          {/* Public */}
           <Route path="/login" element={<Login />} />
+
+          {/* Protected */}
           <Route
             path="/dashboard"
             element={
@@ -19,6 +24,9 @@ export default function App() {
               </RequireAuth>
             }
           />
+
+          {/* 404 fallback → back to login */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

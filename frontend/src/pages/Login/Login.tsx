@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import { loginUser } from "../../services/api";
 import "./Login.css";
 
 // Import images from assets folder
@@ -8,8 +11,45 @@ import mascotImg from "../../assets/images/Mascot.png";
 import signageImg from "../../assets/images/Signage.png";
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+
   const [role, setRole] = useState<"admin" | "manager">("admin");
   const [showPassword, setShowPassword] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Pre-fill demo credentials when switching tabs
+  useEffect(() => {
+    if (role === "admin") {
+      setUsername("admin");
+      setPassword("admin123");
+    } else {
+      setUsername("manager");
+      setPassword("manager123");
+    }
+    setError("");
+  }, [role]);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const response = await loginUser(username, password);
+      login(response.data.user, response.data.token);
+      navigate("/dashboard");
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message || "Login failed. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="login-page">
@@ -26,7 +66,7 @@ export default function Login() {
       </div>
 
       {/* 2. LOGIN FORM */}
-      <div className="login-form">
+      <form className="login-form" onSubmit={handleSubmit}>
         <h1 className="login-form__title">Welcome Back!</h1>
         <p className="login-form__subtitle">
           Sign in to access your automotive inventory &amp; POS system.
@@ -35,6 +75,7 @@ export default function Login() {
         {/* ADMIN / MANAGER tabs */}
         <div className="login-tabs">
           <button
+            type="button"
             className={`login-tabs__btn ${
               role === "admin"
                 ? "login-tabs__btn--active"
@@ -45,6 +86,7 @@ export default function Login() {
             Admin
           </button>
           <button
+            type="button"
             className={`login-tabs__btn ${
               role === "manager"
                 ? "login-tabs__btn--active"
@@ -56,10 +98,20 @@ export default function Login() {
           </button>
         </div>
 
-        {/* Email */}
+        {/* Error message */}
+        {error && <div className="login-error">{error}</div>}
+
+        {/* Email / Username */}
         <div className="login-field">
-          <label htmlFor="email">Email or username:</label>
-          <input id="email" type="text" autoComplete="username" />
+          <label htmlFor="username">Email or username:</label>
+          <input
+            id="username"
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
         </div>
 
         {/* Password */}
@@ -70,6 +122,9 @@ export default function Login() {
               id="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
             />
             <button
               type="button"
@@ -108,13 +163,23 @@ export default function Login() {
         </div>
 
         <div className="login-forgot">
-          <a href="#">Forgot Password?</a>
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setError(
+                "Please contact the Admin/Owner to reset your password.",
+              );
+            }}
+          >
+            Forgot Password?
+          </a>
         </div>
 
-        <button type="button" className="login-btn">
-          Login
+        <button type="submit" className="login-btn" disabled={loading}>
+          {loading ? "Logging in..." : "Login"}
         </button>
-      </div>
+      </form>
 
       {/* 3. AUTO PARTS */}
       <div className="login-autoparts">
@@ -148,42 +213,42 @@ export default function Login() {
         <p className="login-right__system-name">
           Automotive Inventory and Point-of-Sale Intelligence System
         </p>
-        
+
         <div className="right-container">
-        <p className="login-right__tagline">Auto parts, organized</p>
+          <p className="login-right__tagline">Auto parts, organized</p>
 
-        <h2 className="login-right__headline">
-          Real-time stock.
-          <br />
-          Faster checkout.
-          <br />
-          Smarter reordering.
-        </h2>
+          <h2 className="login-right__headline">
+            Real-time stock.
+            <br />
+            Faster checkout.
+            <br />
+            Smarter reordering.
+          </h2>
 
-        <ul className="login-right__bullets">
-          {[
-            "Live inventory across every counter",
-            "Barcode-ready point of sale",
-            "Role-based access for your team",
-          ].map((item) => (
-            <li key={item} className="login-right__bullet">
-              {/* Checkmark in circle SVG based on target design */}
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#3dd0c0"
-                strokeWidth="2"
-                style={{ flexShrink: 0 }}
-              >
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="9 12 11 14 15 10"></polyline>
-              </svg>
-              {item}
-            </li>
-          ))}
-        </ul>
+          <ul className="login-right__bullets">
+            {[
+              "Live inventory across every counter",
+              "Fast, search-based point of sale",
+              "Role-based access for your team",
+            ].map((item) => (
+              <li key={item} className="login-right__bullet">
+                {/* Checkmark in circle SVG based on target design */}
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#3dd0c0"
+                  strokeWidth="2"
+                  style={{ flexShrink: 0 }}
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="9 12 11 14 15 10"></polyline>
+                </svg>
+                {item}
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>
