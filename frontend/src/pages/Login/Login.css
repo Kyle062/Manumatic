@@ -246,6 +246,8 @@
   flex-direction: column;
 }
 
+
+
 /* MANUMATIK logo */
 .login-logo {
   width: 75%;
@@ -254,13 +256,27 @@
 }
 
 .login-logo__img {
+  position: relative;
+  top: -150px;
   width: 140%;
   height: auto;
   object-fit: contain;
 }
 
+.login-right-subtitle{
+  position: relative;
+  top: -130px;
+ 
+}
+
 .login-right__system-name {
-  display: none; /* Subtitle is baked into the Signage.png logo in the target design */
+  position: relative;
+  top: -130px;
+  left: 40px;
+  font-size: 13px;
+  font-weight: bold;
+  font-family: 'Host Grotesk';
+  text-transform: uppercase;
 }
 
 .login-right__tagline {

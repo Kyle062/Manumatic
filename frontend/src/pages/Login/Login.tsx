@@ -148,7 +148,8 @@ export default function Login() {
         <p className="login-right__system-name">
           Automotive Inventory and Point-of-Sale Intelligence System
         </p>
-
+        
+        <div className="right-container"></div>
         <p className="login-right__tagline">Auto parts, organized</p>
 
         <h2 className="login-right__headline">
