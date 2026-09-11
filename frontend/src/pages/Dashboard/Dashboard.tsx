@@ -2,7 +2,18 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
-import { AlertTriangle, Receipt, Activity, ArrowRight } from "lucide-react";
+import {
+  AlertTriangle,
+  Receipt,
+  Activity,
+  ArrowRight,
+  Plus,
+  ShoppingCart,
+  BarChart3,
+  Package,
+  TrendingUp,
+  ArrowUpRight,
+} from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -13,9 +24,6 @@ import {
   CartesianGrid,
 } from "recharts";
 import "./Dashboard.css";
-
-import DashboardImg1 from "../../assets/images/DashboardImg1.png";
-import DashboardImg2 from "../../assets/images/DashboardImg2.png";
 
 // ============================================================
 // MOCK DATA
@@ -47,42 +55,12 @@ const needsReordering = [
 ];
 
 const recentTransactions = [
-  {
-    receipt: "RCP-16331",
-    customer: "Walk-in",
-    date: "2026-09-05",
-    total: 144.0,
-  },
-  {
-    receipt: "RCP-16344",
-    customer: "Ramon Dela Cruz",
-    date: "2026-09-06",
-    total: 3320.0,
-  },
-  {
-    receipt: "RCP-16360",
-    customer: "Walk-in",
-    date: "2026-09-07",
-    total: 1435.0,
-  },
-  {
-    receipt: "RCP-16278",
-    customer: "Nissan Repair Shop",
-    date: "2026-09-08",
-    total: 4704.0,
-  },
-  {
-    receipt: "RCP-16301",
-    customer: "Walk-in",
-    date: "2026-09-09",
-    total: 3012.0,
-  },
-  {
-    receipt: "RCP-16330",
-    customer: "Mercedes Auto Repair",
-    date: "2026-09-10",
-    total: 1472.0,
-  },
+  { receipt: "RCP-16331", customer: "Walk-in",              date: "2026-09-05", total: 144.0 },
+  { receipt: "RCP-16344", customer: "Ramon Dela Cruz",      date: "2026-09-06", total: 3320.0 },
+  { receipt: "RCP-16360", customer: "Walk-in",              date: "2026-09-07", total: 1435.0 },
+  { receipt: "RCP-16278", customer: "Nissan Repair Shop",   date: "2026-09-08", total: 4704.0 },
+  { receipt: "RCP-16301", customer: "Walk-in",              date: "2026-09-09", total: 3012.0 },
+  { receipt: "RCP-16330", customer: "Mercedes Auto Repair", date: "2026-09-10", total: 1472.0 },
 ];
 
 const activityLogs = [
@@ -92,6 +70,14 @@ const activityLogs = [
   { time: "09:30", text: "Store Manager processed sale RCP-16330" },
   { time: "08:55", text: "System Admin logged in" },
   { time: "08:40", text: "Daily backup completed successfully" },
+];
+
+const topSellingParts = [
+  { name: "Brake Pad — Toyota Vios",   sold: 42, revenue: 50400 },
+  { name: "Oil Filter — Honda Civic",  sold: 38, revenue: 13300 },
+  { name: "Spark Plug — NGK",          sold: 35, revenue: 9800  },
+  { name: "Air Filter — Mitsubishi",   sold: 27, revenue: 12150 },
+  { name: "Shock Absorber — Toyota",   sold: 18, revenue: 45000 },
 ];
 
 // ============================================================
@@ -109,6 +95,42 @@ export default function Dashboard() {
       maximumFractionDigits: 2,
     });
 
+  const shortMoney = (n: number) => "₱" + n.toLocaleString("en-PH");
+
+  // ============================================================
+  // Quick Actions data
+  // ============================================================
+  const quickActions = [
+    {
+      label: "New Sale",
+      hint: "Process a walk-in checkout",
+      icon: ShoppingCart,
+      path: "/sales",
+      accent: "#0f6b5c",
+    },
+    {
+      label: "Add Part",
+      hint: "Register a new part",
+      icon: Plus,
+      path: "/inventory",
+      accent: "#1d4ed8",
+    },
+    {
+      label: "View Reports",
+      hint: "Sales & inventory analytics",
+      icon: BarChart3,
+      path: "/reports",
+      accent: "#7c3aed",
+    },
+    {
+      label: "Manage Stock",
+      hint: "Adjust quantities & alerts",
+      icon: Package,
+      path: "/inventory",
+      accent: "#b45309",
+    },
+  ];
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -117,6 +139,30 @@ export default function Dashboard() {
         <Header title="Dashboard" />
 
         <div className="dashboard-content">
+          {/* ================================
+              WELCOME STRIP
+              ================================ */}
+          <div className="welcome-strip">
+            <div className="welcome-strip__left">
+              <h2 className="welcome-strip__title">
+                Welcome back, {user?.name?.split(" ")[0] || "User"} 👋
+              </h2>
+              <p className="welcome-strip__sub">
+                Here's what's happening in your store today.
+              </p>
+            </div>
+            <div className="welcome-strip__right">
+              <button
+                type="button"
+                className="welcome-strip__cta"
+                onClick={() => navigate("/sales")}
+              >
+                <ShoppingCart size={15} />
+                New Sale
+              </button>
+            </div>
+          </div>
+
           {/* ROW 1: Analytics + Needs Reordering */}
           <div className="dash-row-top">
             {/* Analytics */}
@@ -127,36 +173,18 @@ export default function Dashboard() {
               </div>
 
               <div className="analytics-chart">
-                <ResponsiveContainer width="100%" height={140}>
+                <ResponsiveContainer width="100%" height={150}>
                   <AreaChart
                     data={salesTrend}
                     margin={{ top: 8, right: 12, bottom: 0, left: -20 }}
                   >
                     <defs>
-                      <linearGradient
-                        id="salesFill"
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop
-                          offset="0%"
-                          stopColor="#0f6b5c"
-                          stopOpacity={0.28}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor="#0f6b5c"
-                          stopOpacity={0}
-                        />
+                      <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#0f6b5c" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#0f6b5c" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="#eef0f3"
-                      vertical={false}
-                    />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
                     <XAxis
                       dataKey="day"
                       tick={{ fontSize: 10, fill: "#9ca3af" }}
@@ -175,9 +203,7 @@ export default function Dashboard() {
                         border: "1px solid #e5e7eb",
                         boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
                       }}
-                      formatter={(value) =>
-                        "₱" + Number(value).toLocaleString()
-                      }
+                      formatter={(value) => "₱" + Number(value).toLocaleString()}
                     />
                     <Area
                       type="monotone"
@@ -204,15 +230,11 @@ export default function Dashboard() {
                 </div>
 
                 <div className="analytics-item">
-                  <div className="analytics-item__label">
-                    Total transactions
-                  </div>
+                  <div className="analytics-item__label">Total transactions</div>
                   <div className="analytics-item__value">
                     {analytics.totalTransactions}
                   </div>
-                  <div className="analytics-item__sub">
-                    All-time recorded sales
-                  </div>
+                  <div className="analytics-item__sub">All-time recorded sales</div>
                 </div>
 
                 <div className="analytics-item">
@@ -220,9 +242,7 @@ export default function Dashboard() {
                   <div className="analytics-item__value">
                     {analytics.lowStockItems}
                   </div>
-                  <div className="analytics-item__sub">
-                    At or below reorder level
-                  </div>
+                  <div className="analytics-item__sub">At or below reorder level</div>
                 </div>
 
                 <div className="analytics-item">
@@ -241,9 +261,7 @@ export default function Dashboard() {
             <div className="dash-card dash-reorder">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Needs reordering</h2>
-                <span className="dash-badge-count">
-                  {needsReordering.length}
-                </span>
+                <span className="dash-badge-count">{needsReordering.length}</span>
               </div>
 
               <div className="reorder-list">
@@ -253,9 +271,7 @@ export default function Dashboard() {
                       <AlertTriangle size={16} className="reorder-item__icon" />
                       <div className="reorder-item__info">
                         <div className="reorder-item__name">{item.name}</div>
-                        <div className="reorder-item__code">
-                          {item.part_number}
-                        </div>
+                        <div className="reorder-item__code">{item.part_number}</div>
                       </div>
                     </div>
                     <div className="reorder-item__badge">{item.left} left</div>
@@ -278,7 +294,6 @@ export default function Dashboard() {
 
           {/* ROW 2: Recent Transactions + Activity Logs */}
           <div className="dash-row-bottom">
-            {/* Recent Transactions */}
             <div className="dash-card dash-transactions">
               <div className="dash-card__subtitle-row">
                 <Receipt size={14} />
@@ -309,7 +324,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Activity Logs */}
             <div className="dash-card dash-logs">
               <div className="dash-card__subtitle-row dash-card__subtitle-row--light">
                 <Activity size={14} />
@@ -329,18 +343,66 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ROW 3: Banners */}
-          <div className="dash-banners">
-            <img
-              src={DashboardImg1}
-              alt="Banner 1 — Car Service"
-              className="dash-banner-img"
-            />
-            <img
-              src={DashboardImg2}
-              alt="Banner 2 — Motorcycle Repair"
-              className="dash-banner-img"
-            />
+          {/* ROW 3: Quick Actions + Top Selling Parts */}
+          <div className="dash-row-third">
+            {/* Quick Actions */}
+            <div className="dash-card dash-quick">
+              <div className="dash-card__head">
+                <h2 className="dash-card__title">Quick Actions</h2>
+                <span className="dash-card__hint">Shortcuts</span>
+              </div>
+
+              <div className="quick-grid">
+                {quickActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={action.label}
+                      type="button"
+                      className="quick-card"
+                      onClick={() => navigate(action.path)}
+                    >
+                      <span
+                        className="quick-card__icon"
+                        style={{ background: `${action.accent}1a`, color: action.accent }}
+                      >
+                        <Icon size={18} />
+                      </span>
+                      <span className="quick-card__body">
+                        <span className="quick-card__label">{action.label}</span>
+                        <span className="quick-card__hint">{action.hint}</span>
+                      </span>
+                      <ArrowUpRight size={14} className="quick-card__arrow" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Top Selling Parts */}
+            <div className="dash-card dash-top">
+              <div className="dash-card__head">
+                <h2 className="dash-card__title">Top Selling Parts</h2>
+                <span className="dash-card__hint">This week</span>
+              </div>
+
+              <ul className="top-list">
+                {topSellingParts.map((part, idx) => (
+                  <li className="top-item" key={part.name}>
+                    <span className="top-item__rank">{idx + 1}</span>
+                    <span className="top-item__info">
+                      <span className="top-item__name">{part.name}</span>
+                      <span className="top-item__sold">
+                        <TrendingUp size={11} /> {part.sold} sold
+                      </span>
+                    </span>
+                    <span className="top-item__revenue">
+                      {shortMoney(part.revenue)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </div>

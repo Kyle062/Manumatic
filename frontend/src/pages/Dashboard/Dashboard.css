@@ -30,6 +30,58 @@
 }
 
 /* ============================================================
+   WELCOME STRIP
+   ============================================================ */
+
+.welcome-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, #0f6b5c 0%, #0b5347 100%);
+  border-radius: 12px;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(15, 107, 92, 0.18);
+}
+
+.welcome-strip__title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  letter-spacing: -0.01em;
+}
+
+.welcome-strip__sub {
+  font-size: 13px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.welcome-strip__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  color: #0f6b5c;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.welcome-strip__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================
    GENERIC CARD
    ============================================================ */
 
@@ -49,7 +101,7 @@
 }
 
 .dash-card__title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: #111827;
   margin: 0;
@@ -100,8 +152,6 @@
   align-items: stretch;
   min-height: 400px;
 }
-
-/* ---------- Analytics ---------- */
 
 .dash-analytics {
   display: flex;
@@ -251,8 +301,6 @@
   height: 280px;
 }
 
-/* ---------- Recent Transactions ---------- */
-
 .dash-transactions {
   display: flex;
   flex-direction: column;
@@ -305,8 +353,6 @@
   text-align: right;
 }
 
-/* ---------- Activity Logs ---------- */
-
 .dash-logs {
   background: #0b1f3a;
   border-color: #0b1f3a;
@@ -356,7 +402,172 @@
 }
 
 /* ============================================================
-   CUSTOM SCROLLBAR (WebKit — Chrome, Edge, Safari)
+   ROW 3: Quick Actions + Top Selling
+   ============================================================ */
+
+.dash-row-third {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 22px;
+  align-items: stretch;
+  padding-bottom: 8px;
+}
+
+/* ---------- Quick Actions ---------- */
+
+.dash-quick {
+  display: flex;
+  flex-direction: column;
+}
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.quick-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f9fafb;
+  border: 1px solid #eef0f3;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background-color 0.15s,
+    transform 0.1s,
+    border-color 0.15s;
+}
+
+.quick-card:hover {
+  background: #ffffff;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+}
+
+.quick-card:active {
+  transform: translateY(0);
+}
+
+.quick-card__icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.quick-card__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.quick-card__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.quick-card__hint {
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.quick-card__arrow {
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+/* ---------- Top Selling ---------- */
+
+.dash-top {
+  display: flex;
+  flex-direction: column;
+}
+
+.top-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.top-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #f9fafb;
+  border: 1px solid #eef0f3;
+  transition: background-color 0.15s;
+}
+
+.top-item:hover {
+  background: #ffffff;
+}
+
+.top-item__rank {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #0f6b5c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.top-item__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.top-item__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.top-item__sold {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.top-item__revenue {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f6b5c;
+  white-space: nowrap;
+}
+
+/* ============================================================
+   CUSTOM SCROLLBARS
    ============================================================ */
 
 .txn-scroll::-webkit-scrollbar,
@@ -407,40 +618,16 @@
 }
 
 /* ============================================================
-   ROW 3: Banners
-   ============================================================ */
-
-.dash-banners {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 22px;
-  padding-bottom: 8px;
-}
-
-.dash-banner-img {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  display: block;
-  transition:
-    transform 0.2s,
-    box-shadow 0.2s;
-}
-
-.dash-banner-img:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-}
-
-/* ============================================================
    RESPONSIVE
    ============================================================ */
 
 @media (max-width: 1280px) {
   .dash-row-top {
     grid-template-columns: 1.5fr 1fr;
+  }
+
+  .dash-row-third {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -451,27 +638,16 @@
   }
 
   .dash-row-top,
-  .dash-row-bottom {
+  .dash-row-bottom,
+  .dash-row-third {
     grid-template-columns: 1fr;
     min-height: auto;
-    height: auto;
-  }
-
-  .dash-row-bottom {
     height: auto;
   }
 
   .dash-transactions,
   .dash-logs {
     height: 300px;
-  }
-
-  .dash-banners {
-    grid-template-columns: 1fr;
-  }
-
-  .dash-banner-img {
-    height: 140px;
   }
 }
 
@@ -485,6 +661,12 @@
     padding: 16px;
   }
 
+  .welcome-strip {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
   .analytics-list {
     grid-template-columns: 1fr;
     gap: 14px;
@@ -494,12 +676,12 @@
     font-size: 20px;
   }
 
-  .dash-row-bottom {
+  .quick-grid {
     grid-template-columns: 1fr;
   }
 
   .txn-table th:nth-child(3),
   .txn-table td:nth-child(3) {
-    display: none; /* hide DATE column on very small screens */
+    display: none;
   }
 }
