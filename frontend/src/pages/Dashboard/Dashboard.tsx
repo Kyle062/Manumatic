@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/Sidebar";
@@ -13,6 +14,8 @@ import {
   Package,
   TrendingUp,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   AreaChart,
@@ -24,6 +27,9 @@ import {
   CartesianGrid,
 } from "recharts";
 import "./Dashboard.css";
+
+import DashboardImg1 from "../../assets/images/DashboardImg1.png";
+import DashboardImg2 from "../../assets/images/DashboardImg2.png";
 
 // ============================================================
 // MOCK DATA
@@ -55,12 +61,42 @@ const needsReordering = [
 ];
 
 const recentTransactions = [
-  { receipt: "RCP-16331", customer: "Walk-in",              date: "2026-09-05", total: 144.0 },
-  { receipt: "RCP-16344", customer: "Ramon Dela Cruz",      date: "2026-09-06", total: 3320.0 },
-  { receipt: "RCP-16360", customer: "Walk-in",              date: "2026-09-07", total: 1435.0 },
-  { receipt: "RCP-16278", customer: "Nissan Repair Shop",   date: "2026-09-08", total: 4704.0 },
-  { receipt: "RCP-16301", customer: "Walk-in",              date: "2026-09-09", total: 3012.0 },
-  { receipt: "RCP-16330", customer: "Mercedes Auto Repair", date: "2026-09-10", total: 1472.0 },
+  {
+    receipt: "RCP-16331",
+    customer: "Walk-in",
+    date: "2026-09-05",
+    total: 144.0,
+  },
+  {
+    receipt: "RCP-16344",
+    customer: "Ramon Dela Cruz",
+    date: "2026-09-06",
+    total: 3320.0,
+  },
+  {
+    receipt: "RCP-16360",
+    customer: "Walk-in",
+    date: "2026-09-07",
+    total: 1435.0,
+  },
+  {
+    receipt: "RCP-16278",
+    customer: "Nissan Repair Shop",
+    date: "2026-09-08",
+    total: 4704.0,
+  },
+  {
+    receipt: "RCP-16301",
+    customer: "Walk-in",
+    date: "2026-09-09",
+    total: 3012.0,
+  },
+  {
+    receipt: "RCP-16330",
+    customer: "Mercedes Auto Repair",
+    date: "2026-09-10",
+    total: 1472.0,
+  },
 ];
 
 const activityLogs = [
@@ -73,11 +109,17 @@ const activityLogs = [
 ];
 
 const topSellingParts = [
-  { name: "Brake Pad — Toyota Vios",   sold: 42, revenue: 50400 },
-  { name: "Oil Filter — Honda Civic",  sold: 38, revenue: 13300 },
-  { name: "Spark Plug — NGK",          sold: 35, revenue: 9800  },
-  { name: "Air Filter — Mitsubishi",   sold: 27, revenue: 12150 },
-  { name: "Shock Absorber — Toyota",   sold: 18, revenue: 45000 },
+  { name: "Brake Pad — Toyota Vios", sold: 42, revenue: 50400 },
+  { name: "Oil Filter — Honda Civic", sold: 38, revenue: 13300 },
+  { name: "Spark Plug — NGK", sold: 35, revenue: 9800 },
+  { name: "Air Filter — Mitsubishi", sold: 27, revenue: 12150 },
+  { name: "Shock Absorber — Toyota", sold: 18, revenue: 45000 },
+];
+
+// Banner slides for the carousel
+const bannerSlides = [
+  { src: DashboardImg1, alt: "Banner 1 — Car Service" },
+  { src: DashboardImg2, alt: "Banner 2 — Motorcycle Repair" },
 ];
 
 // ============================================================
@@ -88,6 +130,27 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  // ----- Carousel state -----
+  const [slide, setSlide] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  // Auto-advance every 4 seconds
+  useEffect(() => {
+    if (paused) return;
+    const id = setInterval(() => {
+      setSlide((s) => (s + 1) % bannerSlides.length);
+    }, 4000);
+    return () => clearInterval(id);
+  }, [paused]);
+
+  const prevSlide = () => {
+    setSlide((s) => (s - 1 + bannerSlides.length) % bannerSlides.length);
+  };
+  const nextSlide = () => {
+    setSlide((s) => (s + 1) % bannerSlides.length);
+  };
+
+  // ----- Helpers -----
   const money = (n: number) =>
     "₱" +
     n.toLocaleString("en-PH", {
@@ -97,9 +160,6 @@ export default function Dashboard() {
 
   const shortMoney = (n: number) => "₱" + n.toLocaleString("en-PH");
 
-  // ============================================================
-  // Quick Actions data
-  // ============================================================
   const quickActions = [
     {
       label: "New Sale",
@@ -165,7 +225,6 @@ export default function Dashboard() {
 
           {/* ROW 1: Analytics + Needs Reordering */}
           <div className="dash-row-top">
-            {/* Analytics */}
             <div className="dash-card dash-analytics">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Analytics</h2>
@@ -179,12 +238,30 @@ export default function Dashboard() {
                     margin={{ top: 8, right: 12, bottom: 0, left: -20 }}
                   >
                     <defs>
-                      <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#0f6b5c" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#0f6b5c" stopOpacity={0} />
+                      <linearGradient
+                        id="salesFill"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#0f6b5c"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#0f6b5c"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#eef0f3" vertical={false} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="#eef0f3"
+                      vertical={false}
+                    />
                     <XAxis
                       dataKey="day"
                       tick={{ fontSize: 10, fill: "#9ca3af" }}
@@ -203,7 +280,9 @@ export default function Dashboard() {
                         border: "1px solid #e5e7eb",
                         boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
                       }}
-                      formatter={(value) => "₱" + Number(value).toLocaleString()}
+                      formatter={(value) =>
+                        "₱" + Number(value).toLocaleString()
+                      }
                     />
                     <Area
                       type="monotone"
@@ -230,11 +309,15 @@ export default function Dashboard() {
                 </div>
 
                 <div className="analytics-item">
-                  <div className="analytics-item__label">Total transactions</div>
+                  <div className="analytics-item__label">
+                    Total transactions
+                  </div>
                   <div className="analytics-item__value">
                     {analytics.totalTransactions}
                   </div>
-                  <div className="analytics-item__sub">All-time recorded sales</div>
+                  <div className="analytics-item__sub">
+                    All-time recorded sales
+                  </div>
                 </div>
 
                 <div className="analytics-item">
@@ -242,7 +325,9 @@ export default function Dashboard() {
                   <div className="analytics-item__value">
                     {analytics.lowStockItems}
                   </div>
-                  <div className="analytics-item__sub">At or below reorder level</div>
+                  <div className="analytics-item__sub">
+                    At or below reorder level
+                  </div>
                 </div>
 
                 <div className="analytics-item">
@@ -261,7 +346,9 @@ export default function Dashboard() {
             <div className="dash-card dash-reorder">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Needs reordering</h2>
-                <span className="dash-badge-count">{needsReordering.length}</span>
+                <span className="dash-badge-count">
+                  {needsReordering.length}
+                </span>
               </div>
 
               <div className="reorder-list">
@@ -271,7 +358,9 @@ export default function Dashboard() {
                       <AlertTriangle size={16} className="reorder-item__icon" />
                       <div className="reorder-item__info">
                         <div className="reorder-item__name">{item.name}</div>
-                        <div className="reorder-item__code">{item.part_number}</div>
+                        <div className="reorder-item__code">
+                          {item.part_number}
+                        </div>
                       </div>
                     </div>
                     <div className="reorder-item__badge">{item.left} left</div>
@@ -343,9 +432,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ROW 3: Quick Actions + Top Selling Parts */}
+          {/* ROW 3: Quick Actions (with carousel inside) + Top Selling */}
           <div className="dash-row-third">
-            {/* Quick Actions */}
+            {/* Quick Actions + Carousel */}
             <div className="dash-card dash-quick">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Quick Actions</h2>
@@ -364,12 +453,17 @@ export default function Dashboard() {
                     >
                       <span
                         className="quick-card__icon"
-                        style={{ background: `${action.accent}1a`, color: action.accent }}
+                        style={{
+                          background: `${action.accent}1a`,
+                          color: action.accent,
+                        }}
                       >
                         <Icon size={18} />
                       </span>
                       <span className="quick-card__body">
-                        <span className="quick-card__label">{action.label}</span>
+                        <span className="quick-card__label">
+                          {action.label}
+                        </span>
                         <span className="quick-card__hint">{action.hint}</span>
                       </span>
                       <ArrowUpRight size={14} className="quick-card__arrow" />
@@ -377,9 +471,66 @@ export default function Dashboard() {
                   );
                 })}
               </div>
+
+              {/* =============================
+                  BANNER CAROUSEL (inside card)
+                  ============================= */}
+              <div
+                className="banner-carousel"
+                onMouseEnter={() => setPaused(true)}
+                onMouseLeave={() => setPaused(false)}
+              >
+                <div
+                  className="banner-carousel__track"
+                  style={{ transform: `translateX(-${slide * 100}%)` }}
+                >
+                  {bannerSlides.map((b, i) => (
+                    <div className="banner-carousel__slide" key={i}>
+                      <img
+                        src={b.src}
+                        alt={b.alt}
+                        className="banner-carousel__img"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Arrows */}
+                <button
+                  type="button"
+                  className="banner-carousel__nav banner-carousel__nav--prev"
+                  onClick={prevSlide}
+                  aria-label="Previous slide"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="banner-carousel__nav banner-carousel__nav--next"
+                  onClick={nextSlide}
+                  aria-label="Next slide"
+                >
+                  <ChevronRight size={16} />
+                </button>
+
+                {/* Dots */}
+                <div className="banner-carousel__dots">
+                  {bannerSlides.map((_, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      className={`banner-carousel__dot ${
+                        slide === i ? "is-active" : ""
+                      }`}
+                      onClick={() => setSlide(i)}
+                      aria-label={`Go to slide ${i + 1}`}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
-            {/* Top Selling Parts */}
+            {/* Top Selling */}
             <div className="dash-card dash-top">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Top Selling Parts</h2>

@@ -402,7 +402,7 @@
 }
 
 /* ============================================================
-   ROW 3: Quick Actions + Top Selling
+   ROW 3: Quick Actions (with carousel) + Top Selling
    ============================================================ */
 
 .dash-row-third {
@@ -418,6 +418,7 @@
 .dash-quick {
   display: flex;
   flex-direction: column;
+  gap: 18px;
 }
 
 .quick-grid {
@@ -487,6 +488,118 @@
 .quick-card__arrow {
   color: #9ca3af;
   flex-shrink: 0;
+}
+
+/* ---------- Banner Carousel (inside Quick Actions card) ---------- */
+
+.banner-carousel {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  user-select: none;
+}
+
+.banner-carousel__track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.banner-carousel__slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+}
+
+.banner-carousel__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Arrows */
+.banner-carousel__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  color: #111827;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    background-color 0.15s,
+    transform 0.15s;
+  z-index: 2;
+}
+
+.banner-carousel:hover .banner-carousel__nav {
+  opacity: 1;
+}
+
+.banner-carousel__nav:hover {
+  background: #ffffff;
+  transform: translateY(-50%) scale(1.05);
+}
+
+.banner-carousel__nav--prev {
+  left: 10px;
+}
+
+.banner-carousel__nav--next {
+  right: 10px;
+}
+
+/* Dots */
+.banner-carousel__dots {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 5px 9px;
+  border-radius: 9999px;
+  backdrop-filter: blur(4px);
+  z-index: 2;
+}
+
+.banner-carousel__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    transform 0.2s;
+}
+
+.banner-carousel__dot.is-active {
+  background: #ffffff;
+  transform: scale(1.25);
+}
+
+.banner-carousel__dot:hover {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 /* ---------- Top Selling ---------- */
@@ -605,7 +718,6 @@
   background: #2a4a7a;
 }
 
-/* Firefox fallback */
 .txn-scroll,
 .logs-scroll,
 .reorder-list {
@@ -649,6 +761,10 @@
   .dash-logs {
     height: 300px;
   }
+
+  .banner-carousel {
+    height: 180px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -678,6 +794,16 @@
 
   .quick-grid {
     grid-template-columns: 1fr;
+  }
+
+  .banner-carousel {
+    height: 150px;
+  }
+
+  .banner-carousel__nav {
+    opacity: 1; /* always visible on touch devices */
+    width: 30px;
+    height: 30px;
   }
 
   .txn-table th:nth-child(3),
