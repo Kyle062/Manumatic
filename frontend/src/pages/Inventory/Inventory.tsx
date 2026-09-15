@@ -7,6 +7,7 @@ import ConfirmDialog from "../../components/ConfirmDialog";
 import {
   Search,
   Plus,
+  Pencil,
   Trash2,
   X,
   AlertTriangle,
@@ -60,25 +61,26 @@ export default function Inventory() {
   // ---- Tabs ----
   const [activeTab, setActiveTab] = useState<Tab>("catalog");
 
-  // ---- Catalog state ----
+  // ---- Catalog ----
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  // ---- Modal state ----
+  // ---- Modal (Add / Edit) ----
   const [showModal, setShowModal] = useState(false);
+  const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState("");
 
-  // ---- Delete state ----
+  // ---- Delete ----
   const [confirmTarget, setConfirmTarget] = useState<Part | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   // ---- Toast ----
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // ---- Add form ----
+  // ---- Form ----
   const [form, setForm] = useState({
     part_number: "",
     name: "",
@@ -90,7 +92,7 @@ export default function Inventory() {
     location: "",
   });
 
-  // ---- Stock adjustment state ----
+  // ---- Stock Adjustment ----
   const [adjPart, setAdjPart] = useState<number | "">("");
   const [adjType, setAdjType] = useState<"in" | "out">("in");
   const [adjQty, setAdjQty] = useState("1");
@@ -127,8 +129,9 @@ export default function Inventory() {
     setAdjReason(adjType === "in" ? REASONS_IN[0] : REASONS_OUT[0]);
   }, [adjType]);
 
-  // ---- Modal handlers ----
+  // ---- Add / Edit Modal ----
   const openAddModal = () => {
+    setEditingPart(null);
     setForm({
       part_number: "",
       name: "",
@@ -143,8 +146,25 @@ export default function Inventory() {
     setShowModal(true);
   };
 
+  const openEditModal = (part: Part) => {
+    setEditingPart(part);
+    setForm({
+      part_number: part.part_number,
+      name: part.name,
+      category: part.category,
+      description: part.description || "",
+      price: String(part.price),
+      reorder_level: String(part.reorder_level),
+      quantity: String(part.quantity),
+      location: part.location || "",
+    });
+    setModalError("");
+    setShowModal(true);
+  };
+
   const closeModal = () => {
     setShowModal(false);
+    setEditingPart(null);
     setModalError("");
   };
 
@@ -154,8 +174,13 @@ export default function Inventory() {
     setSaving(true);
 
     try {
-      await createPart(form);
-      showToast(`"${form.name}" was added to the catalog.`, "success");
+      if (editingPart) {
+        await updatePart(editingPart.part_id, form);
+        showToast(`"${form.name}" was updated.`, "success");
+      } else {
+        await createPart(form);
+        showToast(`"${form.name}" was added to the catalog.`, "success");
+      }
       await fetchParts();
       closeModal();
     } catch (err: any) {
@@ -165,7 +190,7 @@ export default function Inventory() {
     }
   };
 
-  // ---- Delete flow ----
+  // ---- Delete ----
   const requestDelete = (part: Part) => setConfirmTarget(part);
   const cancelDelete = () => !deleting && setConfirmTarget(null);
 
@@ -185,7 +210,7 @@ export default function Inventory() {
     }
   };
 
-  // ---- Stock adjustment ----
+  // ---- Stock Adjustment ----
   const selectedPart = parts.find((p) => p.part_id === adjPart);
   const adjQtyNum = parseInt(adjQty) || 0;
 
@@ -233,11 +258,8 @@ export default function Inventory() {
         "success",
       );
 
-      // Reset form
       setAdjQty("1");
       setAdjNotes("");
-
-      // Refresh parts
       await fetchParts();
     } catch (err: any) {
       setAdjError(err.response?.data?.message || "Failed to adjust stock.");
@@ -378,6 +400,7 @@ export default function Inventory() {
                             <td className="inv-right">{part.reorder_level}</td>
                             <td className="inv-right">
                               <div className="inv-actions">
+                                {/* ADJUST STOCK */}
                                 <button
                                   type="button"
                                   className="inv-icon-btn"
@@ -389,6 +412,18 @@ export default function Inventory() {
                                 >
                                   <Sliders size={14} />
                                 </button>
+
+                                {/* EDIT PART */}
+                                <button
+                                  type="button"
+                                  className="inv-icon-btn"
+                                  onClick={() => openEditModal(part)}
+                                  title="Edit part details"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+
+                                {/* DELETE (Admin only) */}
                                 {isAdmin && (
                                   <button
                                     type="button"
@@ -418,7 +453,6 @@ export default function Inventory() {
                 <h2 className="adj-title">Adjust stock quantity</h2>
 
                 <form onSubmit={handleAdjustSubmit} className="adj-form">
-                  {/* Part selector */}
                   <div className="adj-group">
                     <label>Part</label>
                     <select
@@ -438,7 +472,6 @@ export default function Inventory() {
                     </select>
                   </div>
 
-                  {/* Type toggle */}
                   <div className="adj-toggle">
                     <button
                       type="button"
@@ -462,7 +495,6 @@ export default function Inventory() {
                     </button>
                   </div>
 
-                  {/* Quantity */}
                   <div className="adj-group">
                     <label>Quantity</label>
                     <input
@@ -475,7 +507,6 @@ export default function Inventory() {
                     />
                   </div>
 
-                  {/* Reason */}
                   <div className="adj-group">
                     <label>Reason</label>
                     <select
@@ -491,7 +522,6 @@ export default function Inventory() {
                     </select>
                   </div>
 
-                  {/* Notes */}
                   <div className="adj-group">
                     <label>Notes (optional)</label>
                     <textarea
@@ -503,7 +533,6 @@ export default function Inventory() {
                     />
                   </div>
 
-                  {/* Live preview */}
                   {selectedPart && adjQtyNum > 0 && (
                     <div className="adj-preview">
                       <span className="adj-preview__label">New stock</span>
@@ -558,12 +587,12 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* ADD MODAL */}
+      {/* ================= ADD / EDIT MODAL ================= */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add New Part</h2>
+              <h2>{editingPart ? "Edit Part" : "Add New Part"}</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -633,7 +662,7 @@ export default function Inventory() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Initial Quantity</label>
+                  <label>Quantity</label>
                   <input
                     type="number"
                     min="0"
@@ -641,7 +670,24 @@ export default function Inventory() {
                     onChange={(e) =>
                       setForm({ ...form, quantity: e.target.value })
                     }
+                    disabled={!!editingPart}
+                    title={
+                      editingPart
+                        ? "Use Stock Adjustments tab to change stock"
+                        : ""
+                    }
                   />
+                  {editingPart && (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: "#9ca3af",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Use Stock Adjustments to change quantity.
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Reorder Level</label>
@@ -687,7 +733,11 @@ export default function Inventory() {
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving ? "Saving..." : "Add Part"}
+                  {saving
+                    ? "Saving..."
+                    : editingPart
+                      ? "Update Part"
+                      : "Add Part"}
                 </button>
               </div>
             </form>
