@@ -16,8 +16,6 @@ import {
   Sliders,
   Store,
   Users as UsersIcon,
-  ShieldCheck,
-  UserCog,
   Key,
   Power,
 } from "lucide-react";
@@ -96,7 +94,7 @@ export default function Inventory() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  // ---- Modal ----
+  // ---- Part Modal ----
   const [showModal, setShowModal] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [saving, setSaving] = useState(false);
@@ -109,7 +107,7 @@ export default function Inventory() {
   // ---- Toast ----
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // ---- Add/Edit Form ----
+  // ---- Part Form ----
   const [form, setForm] = useState({
     part_number: "",
     name: "",
@@ -143,9 +141,11 @@ export default function Inventory() {
     reorder_default: "10",
   });
 
-  // ---- Manage Users (Admin only) ----
+  // ---- Users ----
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
+
+  // ---- Add User Modal ----
   const [showUserModal, setShowUserModal] = useState(false);
   const [userSaving, setUserSaving] = useState(false);
   const [userModalError, setUserModalError] = useState("");
@@ -157,7 +157,20 @@ export default function Inventory() {
     role: "manager" as "admin" | "manager",
   });
 
-  // ---- Fetch ----
+  // ---- Reset Password Modal ----
+  const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
+  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetSaving, setResetSaving] = useState(false);
+  const [resetError, setResetError] = useState("");
+
+  // ---- Toggle Active Confirm ----
+  const [toggleTarget, setToggleTarget] = useState<AppUser | null>(null);
+  const [togglingActive, setTogglingActive] = useState(false);
+
+  // ============================================================
+  // EFFECTS
+  // ============================================================
+
   useEffect(() => {
     fetchParts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,6 +182,14 @@ export default function Inventory() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdmin]);
+
+  useEffect(() => {
+    setAdjReason(adjType === "in" ? REASONS_IN[0] : REASONS_OUT[0]);
+  }, [adjType]);
+
+  // ============================================================
+  // FETCHERS
+  // ============================================================
 
   const fetchParts = async () => {
     setLoading(true);
@@ -199,12 +220,8 @@ export default function Inventory() {
     setToast({ message, type });
   };
 
-  useEffect(() => {
-    setAdjReason(adjType === "in" ? REASONS_IN[0] : REASONS_OUT[0]);
-  }, [adjType]);
-
   // ============================================================
-  // CATALOG HANDLERS
+  // PART CRUD
   // ============================================================
 
   const openAddModal = () => {
@@ -303,13 +320,21 @@ export default function Inventory() {
     e.preventDefault();
     setAdjError("");
 
-    if (!selectedPart) return setAdjError("Please select a part.");
-    if (adjQtyNum <= 0)
-      return setAdjError("Quantity must be greater than zero.");
+    if (!selectedPart) {
+      setAdjError("Please select a part.");
+      return;
+    }
+
+    if (adjQtyNum <= 0) {
+      setAdjError("Quantity must be greater than zero.");
+      return;
+    }
+
     if (adjType === "out" && adjQtyNum > selectedPart.quantity) {
-      return setAdjError(
+      setAdjError(
         `Cannot remove ${adjQtyNum} units. Only ${selectedPart.quantity} in stock.`,
       );
+      return;
     }
 
     setAdjSaving(true);
@@ -340,7 +365,7 @@ export default function Inventory() {
   };
 
   // ============================================================
-  // CHECK AVAILABILITY — Memoized
+  // AVAILABILITY — Memoized
   // ============================================================
 
   const categories = useMemo(() => {
@@ -351,7 +376,6 @@ export default function Inventory() {
   const availabilityData = useMemo(() => {
     let list = [...parts];
 
-    // Search
     if (availSearch) {
       const q = availSearch.toLowerCase();
       list = list.filter(
@@ -362,12 +386,10 @@ export default function Inventory() {
       );
     }
 
-    // Category filter
     if (availCategory !== "all") {
       list = list.filter((p) => p.category === availCategory);
     }
 
-    // Stock status filter
     if (availFilter === "in") {
       list = list.filter((p) => p.quantity > p.reorder_level);
     } else if (availFilter === "low") {
@@ -378,7 +400,6 @@ export default function Inventory() {
       list = list.filter((p) => p.quantity === 0);
     }
 
-    // Sort
     list.sort((a, b) => {
       switch (availSort) {
         case "name-asc":
@@ -406,7 +427,7 @@ export default function Inventory() {
   ).length;
 
   // ============================================================
-  // USER MANAGEMENT (Admin only)
+  // USER MANAGEMENT
   // ============================================================
 
   const openAddUserModal = () => {
@@ -445,37 +466,68 @@ export default function Inventory() {
     }
   };
 
-  const handleToggleActive = async (u: AppUser) => {
-    const newStatus = u.is_active === 1 ? false : true;
+  // ---- Reset Password flow ----
+  const openResetPasswordModal = (u: AppUser) => {
+    setResetTarget(u);
+    setResetPasswordValue("");
+    setResetError("");
+  };
+
+  const closeResetPasswordModal = () => {
+    if (resetSaving) return;
+    setResetTarget(null);
+    setResetPasswordValue("");
+    setResetError("");
+  };
+
+  const handleResetPasswordSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!resetTarget) return;
+    setResetError("");
+
+    if (resetPasswordValue.length < 6) {
+      setResetError("Password must be at least 6 characters.");
+      return;
+    }
+
+    setResetSaving(true);
     try {
-      await toggleUserActive(u.user_id, newStatus);
+      await resetUserPassword(resetTarget.user_id, resetPasswordValue);
+      showToast(`Password for "${resetTarget.username}" was reset.`, "success");
+      closeResetPasswordModal();
+    } catch (err: any) {
+      setResetError(err.response?.data?.message || "Failed to reset password.");
+    } finally {
+      setResetSaving(false);
+    }
+  };
+
+  // ---- Toggle Active flow ----
+  const requestToggleActive = (u: AppUser) => setToggleTarget(u);
+  const cancelToggleActive = () => !togglingActive && setToggleTarget(null);
+
+  const confirmToggleActive = async () => {
+    if (!toggleTarget) return;
+    setTogglingActive(true);
+
+    const newStatus = toggleTarget.is_active === 1 ? false : true;
+
+    try {
+      await toggleUserActive(toggleTarget.user_id, newStatus);
       showToast(
-        `"${u.username}" was ${newStatus ? "enabled" : "disabled"}.`,
+        `"${toggleTarget.username}" was ${newStatus ? "enabled" : "disabled"}.`,
         "success",
       );
+      setToggleTarget(null);
       await fetchUsers();
     } catch (err: any) {
       showToast(
         err.response?.data?.message || "Failed to update user.",
         "error",
       );
-    }
-  };
-
-  const handleResetPassword = async (u: AppUser) => {
-    const newPassword = prompt(
-      `Enter new password for "${u.username}" (min 6 chars):`,
-    );
-    if (!newPassword) return;
-    if (newPassword.length < 6) {
-      showToast("Password must be at least 6 characters.", "error");
-      return;
-    }
-    try {
-      await resetUserPassword(u.user_id, newPassword);
-      showToast(`Password for "${u.username}" was reset.`, "success");
-    } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to reset.", "error");
+      setToggleTarget(null);
+    } finally {
+      setTogglingActive(false);
     }
   };
 
@@ -606,7 +658,9 @@ export default function Inventory() {
                             <td>{part.name}</td>
                             <td>
                               <span
-                                className={`inv-cat ${getCategoryClass(part.category)}`}
+                                className={`inv-cat ${getCategoryClass(
+                                  part.category,
+                                )}`}
                               >
                                 {part.category}
                               </span>
@@ -689,14 +743,18 @@ export default function Inventory() {
                   <div className="adj-toggle">
                     <button
                       type="button"
-                      className={`adj-toggle__btn ${adjType === "in" ? "is-active-in" : ""}`}
+                      className={`adj-toggle__btn ${
+                        adjType === "in" ? "is-active-in" : ""
+                      }`}
                       onClick={() => setAdjType("in")}
                     >
                       <PackagePlus size={14} /> Stock in
                     </button>
                     <button
                       type="button"
-                      className={`adj-toggle__btn ${adjType === "out" ? "is-active-out" : ""}`}
+                      className={`adj-toggle__btn ${
+                        adjType === "out" ? "is-active-out" : ""
+                      }`}
                       onClick={() => setAdjType("out")}
                     >
                       <PackageMinus size={14} /> Stock out
@@ -788,62 +846,80 @@ export default function Inventory() {
             <div className="avail-layout">
               {lowStockCount > 0 && (
                 <div className="avail-alert">
-                  <AlertTriangle size={16} />
-                  <span>
-                    <strong>{lowStockCount}</strong> item(s) need reordering.
+                  <AlertTriangle size={15} className="avail-alert__icon" />
+                  <span className="avail-alert__text">
+                    <strong>{lowStockCount}</strong>{" "}
+                    {lowStockCount === 1 ? "item needs" : "items need"}{" "}
+                    reordering.
                   </span>
+                  <button
+                    type="button"
+                    className="avail-alert__action"
+                    onClick={() => setAvailFilter("low")}
+                  >
+                    Show only low stock
+                  </button>
                 </div>
               )}
 
               <div className="avail-toolbar">
-                <div className="inv-search">
-                  <Search size={15} className="inv-search__icon" />
+                <div className="avail-toolbar__search">
+                  <Search size={15} className="avail-toolbar__search-icon" />
                   <input
                     type="text"
-                    placeholder="Search parts..."
+                    placeholder="Search parts by name, part #, or category..."
                     value={availSearch}
                     onChange={(e) => setAvailSearch(e.target.value)}
-                    className="inv-search__input"
+                    className="avail-toolbar__search-input"
                   />
                 </div>
 
-                <select
-                  value={availCategory}
-                  onChange={(e) => setAvailCategory(e.target.value)}
-                  className="avail-select"
-                >
-                  {categories.map((c) => (
-                    <option key={c} value={c}>
-                      {c === "all" ? "All Categories" : c}
-                    </option>
-                  ))}
-                </select>
+                <div className="avail-toolbar__field">
+                  <label className="avail-toolbar__label">Category</label>
+                  <select
+                    value={availCategory}
+                    onChange={(e) => setAvailCategory(e.target.value)}
+                    className="avail-toolbar__select"
+                  >
+                    {categories.map((c) => (
+                      <option key={c} value={c}>
+                        {c === "all" ? "All Categories" : c}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                <select
-                  value={availFilter}
-                  onChange={(e) =>
-                    setAvailFilter(e.target.value as StockFilter)
-                  }
-                  className="avail-select"
-                >
-                  <option value="all">All Stock</option>
-                  <option value="in">In Stock</option>
-                  <option value="low">Low Stock</option>
-                  <option value="out">Out of Stock</option>
-                </select>
+                <div className="avail-toolbar__field">
+                  <label className="avail-toolbar__label">Stock Status</label>
+                  <select
+                    value={availFilter}
+                    onChange={(e) =>
+                      setAvailFilter(e.target.value as StockFilter)
+                    }
+                    className="avail-toolbar__select"
+                  >
+                    <option value="all">All Stock</option>
+                    <option value="in">In Stock</option>
+                    <option value="low">Low Stock</option>
+                    <option value="out">Out of Stock</option>
+                  </select>
+                </div>
 
-                <select
-                  value={availSort}
-                  onChange={(e) => setAvailSort(e.target.value as SortOption)}
-                  className="avail-select"
-                >
-                  <option value="name-asc">Name (A–Z)</option>
-                  <option value="name-desc">Name (Z–A)</option>
-                  <option value="price-asc">Price (Low → High)</option>
-                  <option value="price-desc">Price (High → Low)</option>
-                  <option value="qty-asc">Stock (Low → High)</option>
-                  <option value="qty-desc">Stock (High → Low)</option>
-                </select>
+                <div className="avail-toolbar__field">
+                  <label className="avail-toolbar__label">Sort by</label>
+                  <select
+                    value={availSort}
+                    onChange={(e) => setAvailSort(e.target.value as SortOption)}
+                    className="avail-toolbar__select"
+                  >
+                    <option value="name-asc">Name (A–Z)</option>
+                    <option value="name-desc">Name (Z–A)</option>
+                    <option value="price-asc">Price (Low → High)</option>
+                    <option value="price-desc">Price (High → Low)</option>
+                    <option value="qty-asc">Stock (Low → High)</option>
+                    <option value="qty-desc">Stock (High → Low)</option>
+                  </select>
+                </div>
               </div>
 
               {availabilityData.length === 0 ? (
@@ -993,7 +1069,7 @@ export default function Inventory() {
                             <button
                               type="button"
                               className="user-icon-btn"
-                              onClick={() => handleResetPassword(u)}
+                              onClick={() => openResetPasswordModal(u)}
                               title="Reset password"
                             >
                               <Key size={13} />
@@ -1006,7 +1082,7 @@ export default function Inventory() {
                                   ? "user-icon-btn--disabled"
                                   : ""
                               }`}
-                              onClick={() => handleToggleActive(u)}
+                              onClick={() => requestToggleActive(u)}
                               title={u.is_active === 1 ? "Disable" : "Enable"}
                             >
                               <Power size={13} />
@@ -1023,7 +1099,7 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* ================= ADD/EDIT PART MODAL ================= */}
+      {/* ================= ADD / EDIT PART MODAL ================= */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -1127,7 +1203,10 @@ export default function Inventory() {
                     min="0"
                     value={form.reorder_level}
                     onChange={(e) =>
-                      setForm({ ...form, reorder_level: e.target.value })
+                      setForm({
+                        ...form,
+                        reorder_level: e.target.value,
+                      })
                     }
                   />
                 </div>
@@ -1231,7 +1310,10 @@ export default function Inventory() {
                     type="text"
                     value={userForm.username}
                     onChange={(e) =>
-                      setUserForm({ ...userForm, username: e.target.value })
+                      setUserForm({
+                        ...userForm,
+                        username: e.target.value,
+                      })
                     }
                     required
                   />
@@ -1260,7 +1342,10 @@ export default function Inventory() {
                   type="password"
                   value={userForm.password}
                   onChange={(e) =>
-                    setUserForm({ ...userForm, password: e.target.value })
+                    setUserForm({
+                      ...userForm,
+                      password: e.target.value,
+                    })
                   }
                   required
                   minLength={6}
@@ -1288,17 +1373,103 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION */}
+      {/* ================= RESET PASSWORD MODAL ================= */}
+      {resetTarget && (
+        <div className="modal-overlay" onClick={closeResetPasswordModal}>
+          <div
+            className="modal modal--small"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Reset password</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeResetPasswordModal}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form className="modal-form" onSubmit={handleResetPasswordSubmit}>
+              <div className="reset-context">
+                Set a new password for <strong>{resetTarget.name}</strong> (@
+                {resetTarget.username}).
+              </div>
+
+              {resetError && (
+                <div className="modal-error">
+                  <AlertTriangle size={14} />
+                  {resetError}
+                </div>
+              )}
+
+              <div className="form-group">
+                <label>New password * (min 6 characters)</label>
+                <input
+                  type="password"
+                  value={resetPasswordValue}
+                  onChange={(e) => setResetPasswordValue(e.target.value)}
+                  required
+                  minLength={6}
+                  autoFocus
+                  placeholder="Enter new password"
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeResetPasswordModal}
+                  disabled={resetSaving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={resetSaving}
+                >
+                  {resetSaving ? "Resetting..." : "Reset password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ================= DELETE PART CONFIRM ================= */}
       {confirmTarget && (
         <ConfirmDialog
           title="Delete this part?"
-          message={`"${confirmTarget.name}" (${confirmTarget.part_number}) will be permanently removed from the catalog.`}
+          message={`"${confirmTarget.name}" (${confirmTarget.part_number}) will be permanently removed from the catalog. This action cannot be undone.`}
           confirmLabel="Delete"
           cancelLabel="Keep"
           variant="danger"
           loading={deleting}
           onConfirm={confirmDelete}
           onCancel={cancelDelete}
+        />
+      )}
+
+      {/* ================= TOGGLE ACTIVE CONFIRM ================= */}
+      {toggleTarget && (
+        <ConfirmDialog
+          title={
+            toggleTarget.is_active === 1 ? "Disable user?" : "Enable user?"
+          }
+          message={
+            toggleTarget.is_active === 1
+              ? `"${toggleTarget.name}" (@${toggleTarget.username}) will no longer be able to log in.`
+              : `"${toggleTarget.name}" (@${toggleTarget.username}) will be able to log in again.`
+          }
+          confirmLabel={toggleTarget.is_active === 1 ? "Disable" : "Enable"}
+          cancelLabel="Cancel"
+          variant={toggleTarget.is_active === 1 ? "danger" : "default"}
+          loading={togglingActive}
+          onConfirm={confirmToggleActive}
+          onCancel={cancelToggleActive}
         />
       )}
 
