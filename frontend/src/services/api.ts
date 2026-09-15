@@ -8,38 +8,57 @@ import { User, Part, Sale, DashboardStats, LoginResponse } from "../types";
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
-const api = axios.create({ baseURL: API_URL });
-
-// ============================================================
-// INTERCEPTORS
-// ============================================================
-
-// Attach JWT token automatically
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Auto-logout on 401 / 403
+// ============================================================
+// REQUEST INTERCEPTOR — Attach JWT token to every request
+// ============================================================
+
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error),
+);
+
+// ============================================================
+// RESPONSE INTERCEPTOR — Log errors but DON'T auto-logout
+// ============================================================
+//
+// NOTE: We removed the aggressive auto-logout.
+// If the backend returns 401/403, we log it to console so you
+// can debug, but we DO NOT force a redirect. Individual pages
+// (like RequireAuth) handle redirect logic safely.
+//
+// ============================================================
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 || error.response?.status === 403) {
-      // Only clear session if user is not on login page
-      if (window.location.pathname !== "/login") {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
-        window.location.href = "/login";
-      }
+    const status = error.response?.status;
+    const url = error.config?.url || "";
+
+    if (status === 401 || status === 403) {
+      console.warn(
+        `⚠️ Auth error on ${url} (${status}):`,
+        error.response?.data?.message || "No message",
+      );
     }
+
     return Promise.reject(error);
-  }
+  },
 );
 
-// Simulated delay (only used in mock mode)
+// Simulated delay (used only in mock mode)
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ============================================================
@@ -48,23 +67,23 @@ const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export const loginUser = async (
   username: string,
-  password: string
+  password: string,
 ): Promise<{ data: LoginResponse }> => {
   if (USE_MOCK) {
     await delay(500);
 
     const credentials = [
       { username: "admin", password: "admin123" },
-      { username: "manager", password: "manager123" }
+      { username: "manager", password: "manager123" },
     ];
 
     const valid = credentials.find(
-      (c) => c.username === username && c.password === password
+      (c) => c.username === username && c.password === password,
     );
 
     if (!valid) {
       throw {
-        response: { data: { message: "Invalid username or password." } }
+        response: { data: { message: "Invalid username or password." } },
       };
     }
 
@@ -75,22 +94,22 @@ export const loginUser = async (
             username: "admin",
             role: "admin",
             name: "System Admin",
-            email: "admin@manumatik.com"
+            email: "admin@manumatik.com",
           }
         : {
             user_id: 2,
             username: "manager",
             role: "manager",
             name: "Store Manager",
-            email: "manager@manumatik.com"
+            email: "manager@manumatik.com",
           };
 
     return {
       data: {
         message: "Login successful",
         token: `mock-token-${Date.now()}`,
-        user
-      }
+        user,
+      },
     };
   }
 
@@ -115,19 +134,19 @@ export const getCurrentUser = async () => {
 // DASHBOARD
 // ============================================================
 
-export const getDashboardStats = async (): Promise<{ data: DashboardStats }> => {
+export const getDashboardStats = async (): Promise<{
+  data: DashboardStats;
+}> => {
   if (USE_MOCK) {
     await delay(300);
-    // Mock fallback (used only if VITE_USE_MOCK=true)
-    const today = new Date().toISOString().split("T")[0];
     return {
       data: {
         todaySales: { total_sales: 4388.0, transaction_count: 1 },
         totalTransactions: 6,
         lowStockItems: 4,
         partsInCatalog: 12,
-        unitsOnHand: 342
-      }
+        unitsOnHand: 342,
+      },
     };
   }
 

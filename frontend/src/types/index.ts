@@ -60,6 +60,33 @@ export interface DashboardStats {
   unitsOnHand: number;
 }
 
+export interface Sale {
+  sale_id: number;
+  user_id: number;
+  part_id: number;
+  quantity: number;
+  total_price: number;
+  sale_date: string;
+  payment_type: string;
+  receipt_no: string;
+  part_name: string;
+  user_name: string;
+}
+
+export interface Part {
+  part_id: number;
+  part_number: string;
+  name: string;
+  category: string;
+  description: string;
+  price: number;
+  reorder_level: number;
+  quantity: number;
+  location: string;
+  image: string | null;
+  created_at: string;
+}
+
 // ============================================================
 // AUTH
 // ============================================================

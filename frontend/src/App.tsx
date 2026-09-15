@@ -3,6 +3,7 @@ import { AuthProvider } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard/Dashboard";
+import Inventory from "./pages/Inventory/Inventory";
 
 export default function App() {
   return (
@@ -25,7 +26,35 @@ export default function App() {
             }
           />
 
-          {/* 404 fallback → back to login */}
+          <Route
+            path="/inventory"
+            element={
+              <RequireAuth>
+                <Inventory />
+              </RequireAuth>
+            }
+          />
+
+          {/* Placeholders for future pages */}
+          <Route
+            path="/sales"
+            element={
+              <RequireAuth>
+                <div style={{ padding: 40 }}>Sales — Coming Soon</div>
+              </RequireAuth>
+            }
+          />
+
+          <Route
+            path="/reports"
+            element={
+              <RequireAuth>
+                <div style={{ padding: 40 }}>Reports — Coming Soon</div>
+              </RequireAuth>
+            }
+          />
+
+          {/* 404 → Login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>

@@ -26,97 +26,72 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import {
+  getDashboardStats,
+  getDashboardTransactions,
+  getActivityLogs,
+  getTopSelling,
+  getSalesTrend,
+  getLowStockParts,
+} from "../../services/api";
 import "./Dashboard.css";
 
 import DashboardImg1 from "../../assets/images/DashboardImg1.png";
 import DashboardImg2 from "../../assets/images/DashboardImg2.png";
 
 // ============================================================
-// MOCK DATA
+// TYPES
 // ============================================================
 
-const analytics = {
-  todaySales: 4388.0,
-  todayTransactions: 1,
-  totalTransactions: 7,
-  lowStockItems: 3,
-  partsInCatalog: 12,
-  unitsOnHand: 234,
-};
+interface DashboardStats {
+  todaySales: {
+    total_sales: number;
+    transaction_count: number;
+  };
+  totalTransactions: number;
+  lowStockItems: number;
+  partsInCatalog: number;
+  unitsOnHand: number;
+}
 
-const salesTrend = [
-  { day: "Mon", sales: 1200 },
-  { day: "Tue", sales: 2100 },
-  { day: "Wed", sales: 1800 },
-  { day: "Thu", sales: 3200 },
-  { day: "Fri", sales: 2600 },
-  { day: "Sat", sales: 4100 },
-  { day: "Sun", sales: 4388 },
-];
+interface Transaction {
+  sale_id: number;
+  receipt_no: string;
+  sale_date: string;
+  total_price: number;
+  part_name: string;
+  user_name: string;
+}
 
-const needsReordering = [
-  { name: "Iridium Sparkplug", part_number: "P-1002", left: 8 },
-  { name: "Oil Filter Cartridge", part_number: "P-1006", left: 3 },
-  { name: "Brake Rotor Disc (Pair)", part_number: "P-1009", left: 5 },
-];
+interface ActivityLog {
+  time: string;
+  text: string;
+}
 
-const recentTransactions = [
-  {
-    receipt: "RCP-16331",
-    customer: "Walk-in",
-    date: "2026-09-05",
-    total: 144.0,
-  },
-  {
-    receipt: "RCP-16344",
-    customer: "Ramon Dela Cruz",
-    date: "2026-09-06",
-    total: 3320.0,
-  },
-  {
-    receipt: "RCP-16360",
-    customer: "Walk-in",
-    date: "2026-09-07",
-    total: 1435.0,
-  },
-  {
-    receipt: "RCP-16278",
-    customer: "Nissan Repair Shop",
-    date: "2026-09-08",
-    total: 4704.0,
-  },
-  {
-    receipt: "RCP-16301",
-    customer: "Walk-in",
-    date: "2026-09-09",
-    total: 3012.0,
-  },
-  {
-    receipt: "RCP-16330",
-    customer: "Mercedes Auto Repair",
-    date: "2026-09-10",
-    total: 1472.0,
-  },
-];
+interface TopSelling {
+  part_id: number;
+  name: string;
+  sold: number;
+  revenue: number;
+}
 
-const activityLogs = [
-  { time: "10:42", text: "System Admin processed sale RCP-16331" },
-  { time: "10:15", text: "Store Manager updated stock for P-1002" },
-  { time: "09:58", text: "System Admin added new part P-1012" },
-  { time: "09:30", text: "Store Manager processed sale RCP-16330" },
-  { time: "08:55", text: "System Admin logged in" },
-  { time: "08:40", text: "Daily backup completed successfully" },
-];
+interface SalesTrendPoint {
+  day: string;
+  sales: number;
+}
 
-const topSellingParts = [
-  { name: "Brake Pad — Toyota Vios", sold: 42, revenue: 50400 },
-  { name: "Oil Filter — Honda Civic", sold: 38, revenue: 13300 },
-  { name: "Spark Plug — NGK", sold: 35, revenue: 9800 },
-  { name: "Air Filter — Mitsubishi", sold: 27, revenue: 12150 },
-  { name: "Shock Absorber — Toyota", sold: 18, revenue: 45000 },
-];
+interface LowStockPart {
+  part_id: number;
+  part_number: string;
+  name: string;
+  quantity: number;
+  reorder_level: number;
+}
 
-// Banner slides for the carousel
+// ============================================================
+// BANNER SLIDES
+// ============================================================
+
 const bannerSlides = [
   { src: DashboardImg1, alt: "Banner 1 — Car Service" },
   { src: DashboardImg2, alt: "Banner 2 — Motorcycle Repair" },
@@ -130,11 +105,65 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // ----- Carousel state -----
+  // ---- Data state ----
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [topSelling, setTopSelling] = useState<TopSelling[]>([]);
+  const [salesTrend, setSalesTrend] = useState<SalesTrendPoint[]>([]);
+  const [lowStock, setLowStock] = useState<LowStockPart[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // ---- Carousel state ----
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
 
-  // Auto-advance every 4 seconds
+  // ---- Fetch all dashboard data on mount ----
+  useEffect(() => {
+    fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [
+        statsRes,
+        txnRes,
+        logsRes,
+        topRes,
+        trendRes,
+        lowStockRes,
+      ] = await Promise.all([
+        getDashboardStats(),
+        getDashboardTransactions(6),
+        getActivityLogs(6),
+        getTopSelling(5),
+        getSalesTrend(),
+        getLowStockParts(),
+      ]);
+
+      setStats(statsRes.data);
+      setTransactions(txnRes.data);
+      setLogs(logsRes.data);
+      setTopSelling(topRes.data);
+      setSalesTrend(trendRes.data);
+      setLowStock(lowStockRes.data);
+    } catch (err: any) {
+      console.error("Dashboard fetch error:", err);
+      setError(
+        err.response?.data?.message ||
+          "Failed to load dashboard data. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ---- Carousel auto-advance ----
   useEffect(() => {
     if (paused) return;
     const id = setInterval(() => {
@@ -143,14 +172,12 @@ export default function Dashboard() {
     return () => clearInterval(id);
   }, [paused]);
 
-  const prevSlide = () => {
+  const prevSlide = () =>
     setSlide((s) => (s - 1 + bannerSlides.length) % bannerSlides.length);
-  };
-  const nextSlide = () => {
+  const nextSlide = () =>
     setSlide((s) => (s + 1) % bannerSlides.length);
-  };
 
-  // ----- Helpers -----
+  // ---- Helpers ----
   const money = (n: number) =>
     "₱" +
     n.toLocaleString("en-PH", {
@@ -159,6 +186,11 @@ export default function Dashboard() {
     });
 
   const shortMoney = (n: number) => "₱" + n.toLocaleString("en-PH");
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toISOString().split("T")[0];
+  };
 
   const quickActions = [
     {
@@ -191,6 +223,24 @@ export default function Dashboard() {
     },
   ];
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
+  if (loading) {
+    return (
+      <div className="dashboard-layout">
+        <Sidebar />
+        <div className="dashboard-main">
+          <Header title="Dashboard" />
+          <div className="dashboard-content">
+            <div className="dash-loading">Loading dashboard...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -199,6 +249,8 @@ export default function Dashboard() {
         <Header title="Dashboard" />
 
         <div className="dashboard-content">
+          {error && <div className="dash-error">{error}</div>}
+
           {/* ================================
               WELCOME STRIP
               ================================ */}
@@ -301,10 +353,10 @@ export default function Dashboard() {
                 <div className="analytics-item">
                   <div className="analytics-item__label">Today's sales</div>
                   <div className="analytics-item__value">
-                    {money(analytics.todaySales)}
+                    {money(stats?.todaySales.total_sales || 0)}
                   </div>
                   <div className="analytics-item__sub">
-                    {analytics.todayTransactions} transaction(s)
+                    {stats?.todaySales.transaction_count || 0} transaction(s)
                   </div>
                 </div>
 
@@ -313,7 +365,7 @@ export default function Dashboard() {
                     Total transactions
                   </div>
                   <div className="analytics-item__value">
-                    {analytics.totalTransactions}
+                    {stats?.totalTransactions || 0}
                   </div>
                   <div className="analytics-item__sub">
                     All-time recorded sales
@@ -323,7 +375,7 @@ export default function Dashboard() {
                 <div className="analytics-item">
                   <div className="analytics-item__label">Low stock items</div>
                   <div className="analytics-item__value">
-                    {analytics.lowStockItems}
+                    {stats?.lowStockItems || 0}
                   </div>
                   <div className="analytics-item__sub">
                     At or below reorder level
@@ -333,10 +385,10 @@ export default function Dashboard() {
                 <div className="analytics-item">
                   <div className="analytics-item__label">Parts in catalog</div>
                   <div className="analytics-item__value">
-                    {analytics.partsInCatalog}
+                    {stats?.partsInCatalog || 0}
                   </div>
                   <div className="analytics-item__sub">
-                    {analytics.unitsOnHand} units on hand
+                    {stats?.unitsOnHand || 0} units on hand
                   </div>
                 </div>
               </div>
@@ -346,35 +398,44 @@ export default function Dashboard() {
             <div className="dash-card dash-reorder">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Needs reordering</h2>
-                <span className="dash-badge-count">
-                  {needsReordering.length}
-                </span>
+                <span className="dash-badge-count">{lowStock.length}</span>
               </div>
 
               <div className="reorder-list">
-                {needsReordering.map((item) => (
-                  <div className="reorder-item" key={item.part_number}>
-                    <div className="reorder-item__left">
-                      <AlertTriangle size={16} className="reorder-item__icon" />
-                      <div className="reorder-item__info">
-                        <div className="reorder-item__name">{item.name}</div>
-                        <div className="reorder-item__code">
-                          {item.part_number}
+                {lowStock.length === 0 ? (
+                  <div className="reorder-empty">
+                    All items are sufficiently stocked ✅
+                  </div>
+                ) : (
+                  lowStock.slice(0, 3).map((item) => (
+                    <div className="reorder-item" key={item.part_id}>
+                      <div className="reorder-item__left">
+                        <AlertTriangle
+                          size={16}
+                          className="reorder-item__icon"
+                        />
+                        <div className="reorder-item__info">
+                          <div className="reorder-item__name">{item.name}</div>
+                          <div className="reorder-item__code">
+                            {item.part_number}
+                          </div>
                         </div>
                       </div>
+                      <div className="reorder-item__badge">
+                        {item.quantity} left
+                      </div>
                     </div>
-                    <div className="reorder-item__badge">{item.left} left</div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
 
               <div className="reorder-footer">
                 <button
                   type="button"
                   className="reorder-btn"
-                  onClick={() => navigate("/sales")}
+                  onClick={() => navigate("/inventory")}
                 >
-                  View Sales
+                  View Inventory
                   <ArrowRight size={14} />
                 </button>
               </div>
@@ -390,26 +451,32 @@ export default function Dashboard() {
               </div>
 
               <div className="txn-scroll">
-                <table className="txn-table">
-                  <thead>
-                    <tr>
-                      <th>RECEIPT</th>
-                      <th>CUSTOMER</th>
-                      <th>DATE</th>
-                      <th className="txn-right">TOTAL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentTransactions.map((txn) => (
-                      <tr key={txn.receipt}>
-                        <td>{txn.receipt}</td>
-                        <td>{txn.customer}</td>
-                        <td>{txn.date}</td>
-                        <td className="txn-right">{money(txn.total)}</td>
+                {transactions.length === 0 ? (
+                  <div className="txn-empty">No transactions yet.</div>
+                ) : (
+                  <table className="txn-table">
+                    <thead>
+                      <tr>
+                        <th>RECEIPT</th>
+                        <th>PART</th>
+                        <th>DATE</th>
+                        <th className="txn-right">TOTAL</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {transactions.map((txn) => (
+                        <tr key={txn.sale_id}>
+                          <td>{txn.receipt_no}</td>
+                          <td>{txn.part_name}</td>
+                          <td>{formatDate(txn.sale_date)}</td>
+                          <td className="txn-right">
+                            {money(txn.total_price)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
 
@@ -420,21 +487,24 @@ export default function Dashboard() {
               </div>
 
               <div className="logs-scroll">
-                <ul className="logs-list">
-                  {activityLogs.map((log, i) => (
-                    <li className="log-item" key={i}>
-                      <span className="log-item__time">{log.time}</span>
-                      <span className="log-item__text">{log.text}</span>
-                    </li>
-                  ))}
-                </ul>
+                {logs.length === 0 ? (
+                  <div className="logs-empty">No recent activity.</div>
+                ) : (
+                  <ul className="logs-list">
+                    {logs.map((log, i) => (
+                      <li className="log-item" key={i}>
+                        <span className="log-item__time">{log.time}</span>
+                        <span className="log-item__text">{log.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           </div>
 
-          {/* ROW 3: Quick Actions (with carousel inside) + Top Selling */}
+          {/* ROW 3: Quick Actions (with carousel) + Top Selling */}
           <div className="dash-row-third">
-            {/* Quick Actions + Carousel */}
             <div className="dash-card dash-quick">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Quick Actions</h2>
@@ -472,9 +542,6 @@ export default function Dashboard() {
                 })}
               </div>
 
-              {/* =============================
-                  BANNER CAROUSEL (inside card)
-                  ============================= */}
               <div
                 className="banner-carousel"
                 onMouseEnter={() => setPaused(true)}
@@ -495,7 +562,6 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* Arrows */}
                 <button
                   type="button"
                   className="banner-carousel__nav banner-carousel__nav--prev"
@@ -513,7 +579,6 @@ export default function Dashboard() {
                   <ChevronRight size={16} />
                 </button>
 
-                {/* Dots */}
                 <div className="banner-carousel__dots">
                   {bannerSlides.map((_, i) => (
                     <button
@@ -530,29 +595,32 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Top Selling */}
             <div className="dash-card dash-top">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Top Selling Parts</h2>
                 <span className="dash-card__hint">This week</span>
               </div>
 
-              <ul className="top-list">
-                {topSellingParts.map((part, idx) => (
-                  <li className="top-item" key={part.name}>
-                    <span className="top-item__rank">{idx + 1}</span>
-                    <span className="top-item__info">
-                      <span className="top-item__name">{part.name}</span>
-                      <span className="top-item__sold">
-                        <TrendingUp size={11} /> {part.sold} sold
+              {topSelling.length === 0 ? (
+                <div className="top-empty">No sales data yet.</div>
+              ) : (
+                <ul className="top-list">
+                  {topSelling.map((part, idx) => (
+                    <li className="top-item" key={part.part_id}>
+                      <span className="top-item__rank">{idx + 1}</span>
+                      <span className="top-item__info">
+                        <span className="top-item__name">{part.name}</span>
+                        <span className="top-item__sold">
+                          <TrendingUp size={11} /> {part.sold} sold
+                        </span>
                       </span>
-                    </span>
-                    <span className="top-item__revenue">
-                      {shortMoney(part.revenue)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+                      <span className="top-item__revenue">
+                        {shortMoney(part.revenue)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
         </div>
