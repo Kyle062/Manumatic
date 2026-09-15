@@ -152,3 +152,32 @@ export const getLowStock = async (
     next(error);
   }
 };
+
+import { AuthRequest } from "../types";
+
+
+// ============================================================
+// POST /api/inventory/adjust
+// ============================================================
+
+export const adjustStock = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authenticated." });
+      return;
+    }
+
+    const result = await inventoryService.adjustStock(req.body);
+
+    res.json({
+      message: "Stock adjusted successfully.",
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+};

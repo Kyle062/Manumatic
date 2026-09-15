@@ -62,4 +62,11 @@ router.delete(
   inventoryController.deletePart
 );
 
+router.post(
+  "/adjust",
+  authorizeRole("admin", "manager"),
+  requireFields("part_id", "type", "quantity"),
+  inventoryController.adjustStock
+);
+
 export default router;

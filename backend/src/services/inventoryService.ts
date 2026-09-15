@@ -186,3 +186,70 @@ export const searchParts = async (
 export const getLowStockParts = async (): Promise<Part[]> => {
   return partModel.findLowStock();
 };
+
+// ============================================================
+// ADJUST STOCK (no logging)
+// ============================================================
+
+export interface AdjustStockBody {
+  part_id: number;
+  type: "in" | "out";
+  quantity: number;
+  reason?: string;
+  notes?: string;
+}
+
+export const adjustStock = async (
+  body: AdjustStockBody
+): Promise<{ old_quantity: number; new_quantity: number }> => {
+  // ---- Validate ----
+  if (!body.part_id || isNaN(body.part_id)) {
+    throw { status: 400, message: "Valid part ID is required." };
+  }
+
+  if (body.type !== "in" && body.type !== "out") {
+    throw { status: 400, message: "Type must be 'in' or 'out'." };
+  }
+
+  const qty = Number(body.quantity);
+  if (isNaN(qty) || qty <= 0) {
+    throw { status: 400, message: "Quantity must be a positive number." };
+  }
+
+  // ---- Fetch part ----
+  const part = await partModel.findById(body.part_id);
+  if (!part) {
+    throw { status: 404, message: "Part not found." };
+  }
+
+  const oldQty = part.quantity;
+  let newQty: number;
+
+  if (body.type === "in") {
+    newQty = oldQty + qty;
+  } else {
+    if (qty > oldQty) {
+      throw {
+        status: 400,
+        message: `Cannot remove ${qty} units. Only ${oldQty} in stock.`
+      };
+    }
+    newQty = oldQty - qty;
+  }
+
+  // ---- Update parts.quantity ----
+  await partModel.update({
+    part_id: part.part_id,
+    part_number: part.part_number,
+    name: part.name,
+    category: part.category,
+    description: part.description,
+    price: part.price,
+    reorder_level: part.reorder_level,
+    quantity: newQty,
+    location: part.location,
+    image: part.image
+  });
+
+  return { old_quantity: oldQty, new_quantity: newQty };
+};

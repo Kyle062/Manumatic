@@ -282,3 +282,18 @@ export const createSale = async (saleData: any) => {
 
   return api.post("/sales", saleData);
 };
+
+export const adjustStock = async (data: {
+  part_id: number;
+  type: "in" | "out";
+  quantity: number;
+  reason?: string;
+  notes?: string;
+}) => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: { message: "Mock mode: use real backend." } };
+  }
+
+  return api.post("/inventory/adjust", data);
+};

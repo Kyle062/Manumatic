@@ -2,14 +2,9 @@ import { useState, useEffect, FormEvent } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
-import {
-  Search,
-  Plus,
-  Pencil,
-  Trash2,
-  X,
-  AlertTriangle,
-} from "lucide-react";
+import Toast, { ToastType } from "../../components/Toast";
+import ConfirmDialog from "../../components/ConfirmDialog";
+import { Search, Plus, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
 import {
   getAllParts,
   createPart,
@@ -24,6 +19,11 @@ import "./Inventory.css";
 // ============================================================
 
 type Tab = "catalog" | "adjustments" | "availability" | "settings";
+
+interface ToastState {
+  message: string;
+  type: ToastType;
+}
 
 export default function Inventory() {
   const { user } = useAuth();
@@ -40,6 +40,13 @@ export default function Inventory() {
   const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState("");
+
+  // Delete confirmation state
+  const [confirmTarget, setConfirmTarget] = useState<Part | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Toast state
+  const [toast, setToast] = useState<ToastState | null>(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -69,11 +76,16 @@ export default function Inventory() {
       console.error("Fetch parts error:", err);
       setError(
         err.response?.data?.message ||
-          "Failed to load parts. Please try again."
+          "Failed to load parts. Please try again.",
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  // ---- Toast helper ----
+  const showToast = (message: string, type: ToastType = "info") => {
+    setToast({ message, type });
   };
 
   // ---- Form handlers ----
@@ -123,31 +135,49 @@ export default function Inventory() {
     try {
       if (editingPart) {
         await updatePart(editingPart.part_id, form);
+        showToast(`"${form.name}" was updated successfully.`, "success");
       } else {
         await createPart(form);
+        showToast(`"${form.name}" was added to the catalog.`, "success");
       }
       await fetchParts();
       closeModal();
     } catch (err: any) {
       setModalError(
-        err.response?.data?.message || "Failed to save part. Please try again."
+        err.response?.data?.message || "Failed to save part. Please try again.",
       );
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (part: Part) => {
-    const confirmed = window.confirm(
-      `Delete "${part.name}"? This cannot be undone.`
-    );
-    if (!confirmed) return;
+  // ---- Delete flow ----
+  const requestDelete = (part: Part) => {
+    setConfirmTarget(part);
+  };
+
+  const cancelDelete = () => {
+    if (deleting) return;
+    setConfirmTarget(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmTarget) return;
+    setDeleting(true);
 
     try {
-      await deletePart(part.part_id);
+      await deletePart(confirmTarget.part_id);
+      showToast(`"${confirmTarget.name}" was deleted.`, "success");
+      setConfirmTarget(null);
       await fetchParts();
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to delete part.");
+      showToast(
+        err.response?.data?.message || "Failed to delete part.",
+        "error",
+      );
+      setConfirmTarget(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -202,9 +232,7 @@ export default function Inventory() {
               <button
                 key={tab.id}
                 type="button"
-                className={`inv-tab ${
-                  activeTab === tab.id ? "is-active" : ""
-                }`}
+                className={`inv-tab ${activeTab === tab.id ? "is-active" : ""}`}
                 onClick={() => setActiveTab(tab.id)}
               >
                 {tab.label}
@@ -215,7 +243,6 @@ export default function Inventory() {
           {/* PARTS CATALOG TAB */}
           {activeTab === "catalog" && (
             <>
-              {/* TOOLBAR */}
               <div className="inv-toolbar">
                 <div className="inv-search">
                   <Search size={15} className="inv-search__icon" />
@@ -238,10 +265,8 @@ export default function Inventory() {
                 </button>
               </div>
 
-              {/* ERROR */}
               {error && <div className="inv-error">{error}</div>}
 
-              {/* TABLE */}
               <div className="inv-table-wrap">
                 {loading ? (
                   <div className="inv-loading">Loading parts...</div>
@@ -269,32 +294,22 @@ export default function Inventory() {
                         const low = part.quantity <= part.reorder_level;
                         return (
                           <tr key={part.part_id}>
-                            <td className="inv-mono">
-                              {part.part_number}
-                            </td>
+                            <td className="inv-mono">{part.part_number}</td>
                             <td>{part.name}</td>
                             <td>
                               <span
                                 className={`inv-cat ${getCategoryClass(
-                                  part.category
+                                  part.category,
                                 )}`}
                               >
                                 {part.category}
                               </span>
                             </td>
-                            <td className="inv-right">
-                              {money(part.price)}
-                            </td>
-                            <td
-                              className={`inv-right ${
-                                low ? "inv-low" : ""
-                              }`}
-                            >
+                            <td className="inv-right">{money(part.price)}</td>
+                            <td className={`inv-right ${low ? "inv-low" : ""}`}>
                               {part.quantity}
                             </td>
-                            <td className="inv-right">
-                              {part.reorder_level}
-                            </td>
+                            <td className="inv-right">{part.reorder_level}</td>
                             <td className="inv-right">
                               <div className="inv-actions">
                                 <button
@@ -309,7 +324,7 @@ export default function Inventory() {
                                   <button
                                     type="button"
                                     className="inv-icon-btn inv-icon-btn--danger"
-                                    onClick={() => handleDelete(part)}
+                                    onClick={() => requestDelete(part)}
                                     title="Delete"
                                   >
                                     <Trash2 size={14} />
@@ -327,18 +342,19 @@ export default function Inventory() {
             </>
           )}
 
-          {/* OTHER TABS — placeholders */}
           {activeTab !== "catalog" && (
             <div className="inv-placeholder">
-              {activeTab === "adjustments" && "Stock Adjustments — coming soon."}
-              {activeTab === "availability" && "Check Availability — coming soon."}
+              {activeTab === "adjustments" &&
+                "Stock Adjustments — coming soon."}
+              {activeTab === "availability" &&
+                "Check Availability — coming soon."}
               {activeTab === "settings" && "Inventory Settings — coming soon."}
             </div>
           )}
         </div>
       </div>
 
-      {/* MODAL */}
+      {/* ADD / EDIT MODAL */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -378,9 +394,7 @@ export default function Inventory() {
                   <input
                     type="text"
                     value={form.name}
-                    onChange={(e) =>
-                      setForm({ ...form, name: e.target.value })
-                    }
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
                     required
                   />
                 </div>
@@ -470,21 +484,40 @@ export default function Inventory() {
                 >
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="btn-primary"
-                  disabled={saving}
-                >
+                <button type="submit" className="btn-primary" disabled={saving}>
                   {saving
                     ? "Saving..."
                     : editingPart
-                    ? "Update Part"
-                    : "Add Part"}
+                      ? "Update Part"
+                      : "Add Part"}
                 </button>
               </div>
             </form>
           </div>
         </div>
+      )}
+
+      {/* DELETE CONFIRMATION */}
+      {confirmTarget && (
+        <ConfirmDialog
+          title="Delete this part?"
+          message={`"${confirmTarget.name}" (${confirmTarget.part_number}) will be permanently removed from the catalog. This action cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Keep"
+          variant="danger"
+          loading={deleting}
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+        />
+      )}
+
+      {/* TOAST */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );
