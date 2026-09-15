@@ -73,6 +73,9 @@ export const createUser = async (data: CreateUserInput) => {
 // ============================================================
 // RESET PASSWORD (Admin verifies own password first)
 // ============================================================
+// Admin CAN reset their own password through this endpoint.
+// There is no separate profile page, so this is the only way.
+// ============================================================
 
 export const resetPassword = async (
   adminUserId: number,
@@ -113,11 +116,12 @@ export const resetPassword = async (
     throw { status: 404, message: "Target user not found." };
   }
 
-  // ---- Prevent resetting own password through this UI ----
-  if (adminUserId === targetUserId) {
+  // ---- Prevent reusing the same password ----
+  const isSameAsOld = await comparePassword(newPassword, target.password);
+  if (isSameAsOld) {
     throw {
       status: 400,
-      message: "Use profile settings to change your own password."
+      message: "New password must be different from the current password."
     };
   }
 

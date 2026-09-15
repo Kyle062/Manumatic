@@ -46,7 +46,8 @@ type SortOption =
   | "price-asc"
   | "price-desc"
   | "qty-asc"
-  | "qty-desc";
+  | "qty-desc"
+  | "low-first";
 type StockFilter = "all" | "in" | "low" | "out";
 
 interface ToastState {
@@ -421,6 +422,12 @@ export default function Inventory() {
           return a.quantity - b.quantity;
         case "qty-desc":
           return b.quantity - a.quantity;
+        case "low-first": {
+          const aLow = a.quantity <= a.reorder_level ? 0 : 1;
+          const bLow = b.quantity <= b.reorder_level ? 0 : 1;
+          if (aLow !== bLow) return aLow - bLow;
+          return a.quantity - b.quantity;
+        }
         default:
           return 0;
       }
@@ -502,7 +509,6 @@ export default function Inventory() {
     if (!resetTarget) return;
     setResetError("");
 
-    // Validate fields
     if (!resetAdminPassword) {
       setResetError("Please enter your password to confirm.");
       return;
@@ -515,11 +521,6 @@ export default function Inventory() {
 
     if (resetNewPassword !== resetConfirmPassword) {
       setResetError("New password and confirmation do not match.");
-      return;
-    }
-
-    if (resetAdminPassword === resetNewPassword) {
-      setResetError("New password must be different from your own.");
       return;
     }
 
@@ -955,6 +956,7 @@ export default function Inventory() {
                     <option value="price-desc">Price (High → Low)</option>
                     <option value="qty-asc">Stock (Low → High)</option>
                     <option value="qty-desc">Stock (High → Low)</option>
+                    <option value="low-first">⚠️ Low stock first</option>
                   </select>
                 </div>
               </div>
@@ -1002,7 +1004,6 @@ export default function Inventory() {
               ============================================================ */}
           {activeTab === "settings" && (
             <div className="settings-layout">
-              {/* STORE SETTINGS — everyone */}
               <div className="settings-card">
                 <div className="settings-header">
                   <Store size={16} />
@@ -1067,7 +1068,6 @@ export default function Inventory() {
                 </div>
               </div>
 
-              {/* MANAGE USERS — Admin only */}
               {isAdmin && (
                 <div className="settings-card">
                   <div className="settings-header">
@@ -1443,7 +1443,6 @@ export default function Inventory() {
                 </div>
               )}
 
-              {/* Admin's own password */}
               <div className="form-group">
                 <label>Your password *</label>
                 <div className="pw-input-wrap">
@@ -1473,7 +1472,6 @@ export default function Inventory() {
                 </div>
               </div>
 
-              {/* New password */}
               <div className="form-group">
                 <label>New password * (min 6 characters)</label>
                 <div className="pw-input-wrap">
@@ -1499,7 +1497,6 @@ export default function Inventory() {
                 </div>
               </div>
 
-              {/* Confirm new password */}
               <div className="form-group">
                 <label>Confirm new password *</label>
                 <div className="pw-input-wrap">
