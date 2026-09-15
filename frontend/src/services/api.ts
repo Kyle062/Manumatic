@@ -298,4 +298,44 @@ export const adjustStock = async (data: {
   return api.post("/inventory/adjust", data);
 };
 
+// ============================================================
+// USER MANAGEMENT (Admin only)
+// ============================================================
 
+export const listUsers = async () => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: [] };
+  }
+  return api.get("/users");
+};
+
+export const createUser = async (data: {
+  username: string;
+  password: string;
+  role: "admin" | "manager";
+  name: string;
+  email: string;
+}) => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: { message: "Mock mode: use real backend." } };
+  }
+  return api.post("/users", data);
+};
+
+export const resetUserPassword = async (id: number, password: string) => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: { message: "Mock mode: use real backend." } };
+  }
+  return api.put(`/users/${id}/password`, { password });
+};
+
+export const toggleUserActive = async (id: number, is_active: boolean) => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: { message: "Mock mode: use real backend." } };
+  }
+  return api.put(`/users/${id}/active`, { is_active });
+};

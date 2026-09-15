@@ -131,3 +131,15 @@ export interface SalesTrendPoint {
   day: string;
   sales: number;
 }
+
+export interface User {
+  user_id: number;
+  username: string;
+  password: string;
+  role: "admin" | "manager";
+  name: string;
+  email: string;
+  created_at: Date;
+  last_login: Date | null;
+  is_active?: number;  // ← ADD THIS
+}

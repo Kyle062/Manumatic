@@ -6,11 +6,11 @@ import { User } from "../types";
 // ============================================================
 
 export const findByUsername = async (
-  username: string
+  username: string,
 ): Promise<User | null> => {
   const [rows] = await pool.execute(
     "SELECT * FROM users WHERE username = ? LIMIT 1",
-    [username]
+    [username],
   );
 
   const users = rows as User[];
@@ -24,7 +24,7 @@ export const findByUsername = async (
 export const findById = async (userId: number): Promise<User | null> => {
   const [rows] = await pool.execute(
     "SELECT * FROM users WHERE user_id = ? LIMIT 1",
-    [userId]
+    [userId],
   );
 
   const users = rows as User[];
@@ -37,7 +37,7 @@ export const findById = async (userId: number): Promise<User | null> => {
 
 export const findAll = async (): Promise<User[]> => {
   const [rows] = await pool.execute(
-    "SELECT * FROM users ORDER BY created_at DESC"
+    "SELECT * FROM users ORDER BY created_at DESC",
   );
   return rows as User[];
 };
@@ -51,12 +51,12 @@ export const create = async (
   password: string,
   role: "admin" | "manager",
   name: string,
-  email: string
+  email: string,
 ): Promise<number> => {
   const [result] = await pool.execute(
     `INSERT INTO users (username, password, role, name, email)
      VALUES (?, ?, ?, ?, ?)`,
-    [username, password, role, name, email]
+    [username, password, role, name, email],
   );
 
   return (result as any).insertId;
@@ -67,10 +67,9 @@ export const create = async (
 // ============================================================
 
 export const updateLastLogin = async (userId: number): Promise<void> => {
-  await pool.execute(
-    "UPDATE users SET last_login = NOW() WHERE user_id = ?",
-    [userId]
-  );
+  await pool.execute("UPDATE users SET last_login = NOW() WHERE user_id = ?", [
+    userId,
+  ]);
 };
 
 // ============================================================
@@ -78,8 +77,56 @@ export const updateLastLogin = async (userId: number): Promise<void> => {
 // ============================================================
 
 export const countUsers = async (): Promise<number> => {
-  const [rows] = await pool.execute(
-    "SELECT COUNT(*) AS total FROM users"
-  );
+  const [rows] = await pool.execute("SELECT COUNT(*) AS total FROM users");
   return (rows as any[])[0].total;
+};
+
+// ============================================================
+// ADMIN USER MANAGEMENT
+// ============================================================
+
+export const findAllPublic = async () => {
+  const [rows] = await pool.execute(
+    `SELECT user_id, username, role, name, email, created_at, last_login, is_active
+     FROM users
+     ORDER BY created_at ASC`,
+  );
+  return rows;
+};
+
+export const createUser = async (
+  username: string,
+  hashedPassword: string,
+  role: "admin" | "manager",
+  name: string,
+  email: string,
+): Promise<number> => {
+  const [result] = await pool.execute(
+    `INSERT INTO users (username, password, role, name, email)
+     VALUES (?, ?, ?, ?, ?)`,
+    [username, hashedPassword, role, name, email],
+  );
+  return (result as any).insertId;
+};
+
+export const updatePassword = async (
+  userId: number,
+  hashedPassword: string,
+): Promise<number> => {
+  const [result] = await pool.execute(
+    "UPDATE users SET password = ? WHERE user_id = ?",
+    [hashedPassword, userId],
+  );
+  return (result as any).affectedRows;
+};
+
+export const setActive = async (
+  userId: number,
+  isActive: boolean,
+): Promise<number> => {
+  const [result] = await pool.execute(
+    "UPDATE users SET is_active = ? WHERE user_id = ?",
+    [isActive ? 1 : 0, userId],
+  );
+  return (result as any).affectedRows;
 };

@@ -9,7 +9,7 @@ import { notFoundHandler, errorHandler } from "./middleware/errorMiddleware";
 import authRoutes from "./routes/authRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
 import inventoryRoutes from "./routes/inventoryRoutes";
-
+import userRoutes from "./routes/userRoutes";
 // Load env vars
 dotenv.config();
 
@@ -53,7 +53,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/inventory", inventoryRoutes);
-
+app.use("/api/users", userRoutes);
 // ============================================================
 // ERROR HANDLERS (must be last)
 // ============================================================

@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useMemo, FormEvent } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
@@ -14,6 +14,12 @@ import {
   PackagePlus,
   PackageMinus,
   Sliders,
+  Store,
+  Users as UsersIcon,
+  ShieldCheck,
+  UserCog,
+  Key,
+  Power,
 } from "lucide-react";
 import {
   getAllParts,
@@ -21,6 +27,10 @@ import {
   updatePart,
   deletePart,
   adjustStock,
+  listUsers,
+  createUser,
+  resetUserPassword,
+  toggleUserActive,
 } from "../../services/api";
 import { Part } from "../../types";
 import "./Inventory.css";
@@ -30,10 +40,29 @@ import "./Inventory.css";
 // ============================================================
 
 type Tab = "catalog" | "adjustments" | "availability" | "settings";
+type SortOption =
+  | "name-asc"
+  | "name-desc"
+  | "price-asc"
+  | "price-desc"
+  | "qty-asc"
+  | "qty-desc";
+type StockFilter = "all" | "in" | "low" | "out";
 
 interface ToastState {
   message: string;
   type: ToastType;
+}
+
+interface AppUser {
+  user_id: number;
+  username: string;
+  role: "admin" | "manager";
+  name: string;
+  email: string;
+  created_at: string;
+  last_login: string | null;
+  is_active: number;
 }
 
 const REASONS_IN = [
@@ -42,7 +71,6 @@ const REASONS_IN = [
   "Found in storage",
   "Correction",
 ];
-
 const REASONS_OUT = [
   "Damaged",
   "Lost",
@@ -57,6 +85,7 @@ const REASONS_OUT = [
 
 export default function Inventory() {
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
 
   // ---- Tabs ----
   const [activeTab, setActiveTab] = useState<Tab>("catalog");
@@ -67,7 +96,7 @@ export default function Inventory() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  // ---- Modal (Add / Edit) ----
+  // ---- Modal ----
   const [showModal, setShowModal] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [saving, setSaving] = useState(false);
@@ -80,7 +109,7 @@ export default function Inventory() {
   // ---- Toast ----
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // ---- Form ----
+  // ---- Add/Edit Form ----
   const [form, setForm] = useState({
     part_number: "",
     name: "",
@@ -101,11 +130,45 @@ export default function Inventory() {
   const [adjSaving, setAdjSaving] = useState(false);
   const [adjError, setAdjError] = useState("");
 
-  // ---- Fetch parts on mount ----
+  // ---- Check Availability ----
+  const [availSearch, setAvailSearch] = useState("");
+  const [availSort, setAvailSort] = useState<SortOption>("name-asc");
+  const [availFilter, setAvailFilter] = useState<StockFilter>("all");
+  const [availCategory, setAvailCategory] = useState<string>("all");
+
+  // ---- Settings ----
+  const [storeSettings, setStoreSettings] = useState({
+    store_name: "Manumatik Auto Parts Center",
+    tax_rate: "12",
+    reorder_default: "10",
+  });
+
+  // ---- Manage Users (Admin only) ----
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userSaving, setUserSaving] = useState(false);
+  const [userModalError, setUserModalError] = useState("");
+  const [userForm, setUserForm] = useState({
+    username: "",
+    password: "",
+    name: "",
+    email: "",
+    role: "manager" as "admin" | "manager",
+  });
+
+  // ---- Fetch ----
   useEffect(() => {
     fetchParts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "settings" && isAdmin) {
+      fetchUsers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, isAdmin]);
 
   const fetchParts = async () => {
     setLoading(true);
@@ -120,16 +183,30 @@ export default function Inventory() {
     }
   };
 
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const res = await listUsers();
+      setUsers(res.data);
+    } catch (err) {
+      console.error("Failed to load users:", err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
   const showToast = (message: string, type: ToastType = "info") => {
     setToast({ message, type });
   };
 
-  // ---- Reset reason when type changes ----
   useEffect(() => {
     setAdjReason(adjType === "in" ? REASONS_IN[0] : REASONS_OUT[0]);
   }, [adjType]);
 
-  // ---- Add / Edit Modal ----
+  // ============================================================
+  // CATALOG HANDLERS
+  // ============================================================
+
   const openAddModal = () => {
     setEditingPart(null);
     setForm({
@@ -190,7 +267,6 @@ export default function Inventory() {
     }
   };
 
-  // ---- Delete ----
   const requestDelete = (part: Part) => setConfirmTarget(part);
   const cancelDelete = () => !deleting && setConfirmTarget(null);
 
@@ -210,7 +286,10 @@ export default function Inventory() {
     }
   };
 
-  // ---- Stock Adjustment ----
+  // ============================================================
+  // STOCK ADJUSTMENT
+  // ============================================================
+
   const selectedPart = parts.find((p) => p.part_id === adjPart);
   const adjQtyNum = parseInt(adjQty) || 0;
 
@@ -224,21 +303,13 @@ export default function Inventory() {
     e.preventDefault();
     setAdjError("");
 
-    if (!selectedPart) {
-      setAdjError("Please select a part.");
-      return;
-    }
-
-    if (adjQtyNum <= 0) {
-      setAdjError("Quantity must be greater than zero.");
-      return;
-    }
-
+    if (!selectedPart) return setAdjError("Please select a part.");
+    if (adjQtyNum <= 0)
+      return setAdjError("Quantity must be greater than zero.");
     if (adjType === "out" && adjQtyNum > selectedPart.quantity) {
-      setAdjError(
+      return setAdjError(
         `Cannot remove ${adjQtyNum} units. Only ${selectedPart.quantity} in stock.`,
       );
-      return;
     }
 
     setAdjSaving(true);
@@ -268,7 +339,150 @@ export default function Inventory() {
     }
   };
 
-  // ---- Filtering ----
+  // ============================================================
+  // CHECK AVAILABILITY — Memoized
+  // ============================================================
+
+  const categories = useMemo(() => {
+    const set = new Set(parts.map((p) => p.category));
+    return ["all", ...Array.from(set)];
+  }, [parts]);
+
+  const availabilityData = useMemo(() => {
+    let list = [...parts];
+
+    // Search
+    if (availSearch) {
+      const q = availSearch.toLowerCase();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.part_number.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q),
+      );
+    }
+
+    // Category filter
+    if (availCategory !== "all") {
+      list = list.filter((p) => p.category === availCategory);
+    }
+
+    // Stock status filter
+    if (availFilter === "in") {
+      list = list.filter((p) => p.quantity > p.reorder_level);
+    } else if (availFilter === "low") {
+      list = list.filter(
+        (p) => p.quantity > 0 && p.quantity <= p.reorder_level,
+      );
+    } else if (availFilter === "out") {
+      list = list.filter((p) => p.quantity === 0);
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      switch (availSort) {
+        case "name-asc":
+          return a.name.localeCompare(b.name);
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+        case "price-asc":
+          return a.price - b.price;
+        case "price-desc":
+          return b.price - a.price;
+        case "qty-asc":
+          return a.quantity - b.quantity;
+        case "qty-desc":
+          return b.quantity - a.quantity;
+        default:
+          return 0;
+      }
+    });
+
+    return list;
+  }, [parts, availSearch, availSort, availFilter, availCategory]);
+
+  const lowStockCount = parts.filter(
+    (p) => p.quantity <= p.reorder_level,
+  ).length;
+
+  // ============================================================
+  // USER MANAGEMENT (Admin only)
+  // ============================================================
+
+  const openAddUserModal = () => {
+    setUserForm({
+      username: "",
+      password: "",
+      name: "",
+      email: "",
+      role: "manager",
+    });
+    setUserModalError("");
+    setShowUserModal(true);
+  };
+
+  const closeUserModal = () => {
+    setShowUserModal(false);
+    setUserModalError("");
+  };
+
+  const handleCreateUser = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setUserModalError("");
+    setUserSaving(true);
+
+    try {
+      await createUser(userForm);
+      showToast(`User "${userForm.username}" was created.`, "success");
+      closeUserModal();
+      await fetchUsers();
+    } catch (err: any) {
+      setUserModalError(
+        err.response?.data?.message || "Failed to create user.",
+      );
+    } finally {
+      setUserSaving(false);
+    }
+  };
+
+  const handleToggleActive = async (u: AppUser) => {
+    const newStatus = u.is_active === 1 ? false : true;
+    try {
+      await toggleUserActive(u.user_id, newStatus);
+      showToast(
+        `"${u.username}" was ${newStatus ? "enabled" : "disabled"}.`,
+        "success",
+      );
+      await fetchUsers();
+    } catch (err: any) {
+      showToast(
+        err.response?.data?.message || "Failed to update user.",
+        "error",
+      );
+    }
+  };
+
+  const handleResetPassword = async (u: AppUser) => {
+    const newPassword = prompt(
+      `Enter new password for "${u.username}" (min 6 chars):`,
+    );
+    if (!newPassword) return;
+    if (newPassword.length < 6) {
+      showToast("Password must be at least 6 characters.", "error");
+      return;
+    }
+    try {
+      await resetUserPassword(u.user_id, newPassword);
+      showToast(`Password for "${u.username}" was reset.`, "success");
+    } catch (err: any) {
+      showToast(err.response?.data?.message || "Failed to reset.", "error");
+    }
+  };
+
+  // ============================================================
+  // HELPERS
+  // ============================================================
+
   const filtered = parts.filter((p) => {
     const q = search.toLowerCase();
     return (
@@ -278,7 +492,6 @@ export default function Inventory() {
     );
   });
 
-  // ---- Helpers ----
   const money = (n: number) =>
     "₱" + n.toLocaleString("en-PH", { minimumFractionDigits: 2 });
 
@@ -292,8 +505,17 @@ export default function Inventory() {
     return "cat-default";
   };
 
-  const isAdmin = user?.role === "admin";
   const reasons = adjType === "in" ? REASONS_IN : REASONS_OUT;
+
+  const formatDate = (s: string | null) => {
+    if (!s) return "Never";
+    const d = new Date(s);
+    return d.toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   // ============================================================
   // RENDER
@@ -328,7 +550,9 @@ export default function Inventory() {
             ))}
           </div>
 
-          {/* ================= PARTS CATALOG ================= */}
+          {/* ============================================================
+              TAB: PARTS CATALOG
+              ============================================================ */}
           {activeTab === "catalog" && (
             <>
               <div className="inv-toolbar">
@@ -342,14 +566,12 @@ export default function Inventory() {
                     className="inv-search__input"
                   />
                 </div>
-
                 <button
                   type="button"
                   className="inv-add-btn"
                   onClick={openAddModal}
                 >
-                  <Plus size={15} />
-                  Add part
+                  <Plus size={15} /> Add part
                 </button>
               </div>
 
@@ -360,9 +582,7 @@ export default function Inventory() {
                   <div className="inv-loading">Loading parts...</div>
                 ) : filtered.length === 0 ? (
                   <div className="inv-empty">
-                    {search
-                      ? "No parts match your search."
-                      : "No parts yet. Click '+ Add part' to begin."}
+                    {search ? "No parts match your search." : "No parts yet."}
                   </div>
                 ) : (
                   <table className="inv-table">
@@ -386,9 +606,7 @@ export default function Inventory() {
                             <td>{part.name}</td>
                             <td>
                               <span
-                                className={`inv-cat ${getCategoryClass(
-                                  part.category,
-                                )}`}
+                                className={`inv-cat ${getCategoryClass(part.category)}`}
                               >
                                 {part.category}
                               </span>
@@ -400,7 +618,6 @@ export default function Inventory() {
                             <td className="inv-right">{part.reorder_level}</td>
                             <td className="inv-right">
                               <div className="inv-actions">
-                                {/* ADJUST STOCK */}
                                 <button
                                   type="button"
                                   className="inv-icon-btn"
@@ -412,18 +629,14 @@ export default function Inventory() {
                                 >
                                   <Sliders size={14} />
                                 </button>
-
-                                {/* EDIT PART */}
                                 <button
                                   type="button"
                                   className="inv-icon-btn"
                                   onClick={() => openEditModal(part)}
-                                  title="Edit part details"
+                                  title="Edit part"
                                 >
                                   <Pencil size={14} />
                                 </button>
-
-                                {/* DELETE (Admin only) */}
                                 {isAdmin && (
                                   <button
                                     type="button"
@@ -446,12 +659,13 @@ export default function Inventory() {
             </>
           )}
 
-          {/* ================= STOCK ADJUSTMENTS ================= */}
+          {/* ============================================================
+              TAB: STOCK ADJUSTMENTS
+              ============================================================ */}
           {activeTab === "adjustments" && (
             <div className="adj-layout adj-layout--centered">
               <div className="adj-form-card">
                 <h2 className="adj-title">Adjust stock quantity</h2>
-
                 <form onSubmit={handleAdjustSubmit} className="adj-form">
                   <div className="adj-group">
                     <label>Part</label>
@@ -475,23 +689,17 @@ export default function Inventory() {
                   <div className="adj-toggle">
                     <button
                       type="button"
-                      className={`adj-toggle__btn ${
-                        adjType === "in" ? "is-active-in" : ""
-                      }`}
+                      className={`adj-toggle__btn ${adjType === "in" ? "is-active-in" : ""}`}
                       onClick={() => setAdjType("in")}
                     >
-                      <PackagePlus size={14} />
-                      Stock in
+                      <PackagePlus size={14} /> Stock in
                     </button>
                     <button
                       type="button"
-                      className={`adj-toggle__btn ${
-                        adjType === "out" ? "is-active-out" : ""
-                      }`}
+                      className={`adj-toggle__btn ${adjType === "out" ? "is-active-out" : ""}`}
                       onClick={() => setAdjType("out")}
                     >
-                      <PackageMinus size={14} />
-                      Stock out
+                      <PackageMinus size={14} /> Stock out
                     </button>
                   </div>
 
@@ -573,21 +781,249 @@ export default function Inventory() {
             </div>
           )}
 
-          {/* Other tabs */}
+          {/* ============================================================
+              TAB: CHECK AVAILABILITY
+              ============================================================ */}
           {activeTab === "availability" && (
-            <div className="inv-placeholder">
-              Check Availability — coming soon.
+            <div className="avail-layout">
+              {lowStockCount > 0 && (
+                <div className="avail-alert">
+                  <AlertTriangle size={16} />
+                  <span>
+                    <strong>{lowStockCount}</strong> item(s) need reordering.
+                  </span>
+                </div>
+              )}
+
+              <div className="avail-toolbar">
+                <div className="inv-search">
+                  <Search size={15} className="inv-search__icon" />
+                  <input
+                    type="text"
+                    placeholder="Search parts..."
+                    value={availSearch}
+                    onChange={(e) => setAvailSearch(e.target.value)}
+                    className="inv-search__input"
+                  />
+                </div>
+
+                <select
+                  value={availCategory}
+                  onChange={(e) => setAvailCategory(e.target.value)}
+                  className="avail-select"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c === "all" ? "All Categories" : c}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={availFilter}
+                  onChange={(e) =>
+                    setAvailFilter(e.target.value as StockFilter)
+                  }
+                  className="avail-select"
+                >
+                  <option value="all">All Stock</option>
+                  <option value="in">In Stock</option>
+                  <option value="low">Low Stock</option>
+                  <option value="out">Out of Stock</option>
+                </select>
+
+                <select
+                  value={availSort}
+                  onChange={(e) => setAvailSort(e.target.value as SortOption)}
+                  className="avail-select"
+                >
+                  <option value="name-asc">Name (A–Z)</option>
+                  <option value="name-desc">Name (Z–A)</option>
+                  <option value="price-asc">Price (Low → High)</option>
+                  <option value="price-desc">Price (High → Low)</option>
+                  <option value="qty-asc">Stock (Low → High)</option>
+                  <option value="qty-desc">Stock (High → Low)</option>
+                </select>
+              </div>
+
+              {availabilityData.length === 0 ? (
+                <div className="inv-empty">No parts match your filters.</div>
+              ) : (
+                <div className="avail-list">
+                  {availabilityData.map((part) => {
+                    const outOfStock = part.quantity === 0;
+                    const isLow =
+                      part.quantity > 0 && part.quantity <= part.reorder_level;
+                    return (
+                      <div className="avail-card" key={part.part_id}>
+                        <div className="avail-card__left">
+                          <div className="avail-card__name">{part.name}</div>
+                          <div className="avail-card__meta">
+                            {part.part_number} · {money(part.price)} ·{" "}
+                            {part.category}
+                          </div>
+                        </div>
+                        <div className="avail-card__right">
+                          <span
+                            className={`avail-badge ${
+                              outOfStock
+                                ? "avail-badge--out"
+                                : isLow
+                                  ? "avail-badge--low"
+                                  : "avail-badge--in"
+                            }`}
+                          >
+                            {part.quantity} in stock
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
+
+          {/* ============================================================
+              TAB: SETTINGS
+              ============================================================ */}
           {activeTab === "settings" && (
-            <div className="inv-placeholder">
-              Inventory Settings — coming soon.
+            <div className="settings-layout">
+              {/* STORE SETTINGS — everyone */}
+              <div className="settings-card">
+                <div className="settings-header">
+                  <Store size={16} />
+                  <h3>Store settings</h3>
+                </div>
+
+                <div className="settings-body">
+                  <div className="adj-group">
+                    <label>Store name</label>
+                    <input
+                      type="text"
+                      value={storeSettings.store_name}
+                      onChange={(e) =>
+                        setStoreSettings({
+                          ...storeSettings,
+                          store_name: e.target.value,
+                        })
+                      }
+                      className="adj-input"
+                    />
+                  </div>
+                  <div className="adj-group">
+                    <label>Sales tax rate (%)</label>
+                    <input
+                      type="number"
+                      value={storeSettings.tax_rate}
+                      onChange={(e) =>
+                        setStoreSettings({
+                          ...storeSettings,
+                          tax_rate: e.target.value,
+                        })
+                      }
+                      className="adj-input"
+                    />
+                  </div>
+                  <div className="adj-group">
+                    <label>Default reorder threshold</label>
+                    <input
+                      type="number"
+                      value={storeSettings.reorder_default}
+                      onChange={(e) =>
+                        setStoreSettings({
+                          ...storeSettings,
+                          reorder_default: e.target.value,
+                        })
+                      }
+                      className="adj-input"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="settings-save"
+                    onClick={() =>
+                      showToast(
+                        "Store settings saved (session only).",
+                        "success",
+                      )
+                    }
+                  >
+                    Save settings
+                  </button>
+                </div>
+              </div>
+
+              {/* MANAGE USERS — Admin only */}
+              {isAdmin && (
+                <div className="settings-card">
+                  <div className="settings-header">
+                    <UsersIcon size={16} />
+                    <h3>Manage users</h3>
+                    <button
+                      type="button"
+                      className="settings-add-user"
+                      onClick={openAddUserModal}
+                    >
+                      <Plus size={13} /> Add user
+                    </button>
+                  </div>
+
+                  {usersLoading ? (
+                    <div className="inv-loading">Loading users...</div>
+                  ) : users.length === 0 ? (
+                    <div className="inv-empty">No users found.</div>
+                  ) : (
+                    <ul className="user-list">
+                      {users.map((u) => (
+                        <li className="user-item" key={u.user_id}>
+                          <div className="user-item__info">
+                            <div className="user-item__name">{u.name}</div>
+                            <div className="user-item__meta">
+                              @{u.username} · last login:{" "}
+                              {formatDate(u.last_login)}
+                            </div>
+                          </div>
+
+                          <div className="user-item__right">
+                            <span className={`user-role user-role--${u.role}`}>
+                              {u.role}
+                            </span>
+
+                            <button
+                              type="button"
+                              className="user-icon-btn"
+                              onClick={() => handleResetPassword(u)}
+                              title="Reset password"
+                            >
+                              <Key size={13} />
+                            </button>
+
+                            <button
+                              type="button"
+                              className={`user-icon-btn ${
+                                u.is_active === 0
+                                  ? "user-icon-btn--disabled"
+                                  : ""
+                              }`}
+                              onClick={() => handleToggleActive(u)}
+                              title={u.is_active === 1 ? "Disable" : "Enable"}
+                            >
+                              <Power size={13} />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* ================= ADD / EDIT MODAL ================= */}
+      {/* ================= ADD/EDIT PART MODAL ================= */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -671,11 +1107,6 @@ export default function Inventory() {
                       setForm({ ...form, quantity: e.target.value })
                     }
                     disabled={!!editingPart}
-                    title={
-                      editingPart
-                        ? "Use Stock Adjustments tab to change stock"
-                        : ""
-                    }
                   />
                   {editingPart && (
                     <span
@@ -745,11 +1176,123 @@ export default function Inventory() {
         </div>
       )}
 
+      {/* ================= ADD USER MODAL ================= */}
+      {showUserModal && isAdmin && (
+        <div className="modal-overlay" onClick={closeUserModal}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add New User</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeUserModal}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form className="modal-form" onSubmit={handleCreateUser}>
+              {userModalError && (
+                <div className="modal-error">
+                  <AlertTriangle size={14} />
+                  {userModalError}
+                </div>
+              )}
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Full name *</label>
+                  <input
+                    type="text"
+                    value={userForm.name}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, name: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input
+                    type="email"
+                    value={userForm.email}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, email: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Username *</label>
+                  <input
+                    type="text"
+                    value={userForm.username}
+                    onChange={(e) =>
+                      setUserForm({ ...userForm, username: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Role *</label>
+                  <select
+                    value={userForm.role}
+                    onChange={(e) =>
+                      setUserForm({
+                        ...userForm,
+                        role: e.target.value as "admin" | "manager",
+                      })
+                    }
+                    className="adj-select"
+                  >
+                    <option value="manager">Manager</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Password * (min 6 characters)</label>
+                <input
+                  type="password"
+                  value={userForm.password}
+                  onChange={(e) =>
+                    setUserForm({ ...userForm, password: e.target.value })
+                  }
+                  required
+                  minLength={6}
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={closeUserModal}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={userSaving}
+                >
+                  {userSaving ? "Creating..." : "Create user"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* DELETE CONFIRMATION */}
       {confirmTarget && (
         <ConfirmDialog
           title="Delete this part?"
-          message={`"${confirmTarget.name}" (${confirmTarget.part_number}) will be permanently removed from the catalog. This action cannot be undone.`}
+          message={`"${confirmTarget.name}" (${confirmTarget.part_number}) will be permanently removed from the catalog.`}
           confirmLabel="Delete"
           cancelLabel="Keep"
           variant="danger"

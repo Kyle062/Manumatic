@@ -36,6 +36,13 @@ export const login = async (
     };
   }
 
+  if (user.is_active === 0) {
+  throw {
+    status: 401,
+    message: "Account is disabled. Contact the administrator."
+  };
+}
+
   // Compare password
   const valid = await comparePassword(password, user.password);
 
