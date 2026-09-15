@@ -4,18 +4,28 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Toast, { ToastType } from "../../components/Toast";
 import ConfirmDialog from "../../components/ConfirmDialog";
-import { Search, Plus, Pencil, Trash2, X, AlertTriangle } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Trash2,
+  X,
+  AlertTriangle,
+  PackagePlus,
+  PackageMinus,
+  Sliders,
+} from "lucide-react";
 import {
   getAllParts,
   createPart,
   updatePart,
   deletePart,
+  adjustStock,
 } from "../../services/api";
 import { Part } from "../../types";
 import "./Inventory.css";
 
 // ============================================================
-// COMPONENT
+// TYPES
 // ============================================================
 
 type Tab = "catalog" | "adjustments" | "availability" | "settings";
@@ -25,30 +35,50 @@ interface ToastState {
   type: ToastType;
 }
 
+const REASONS_IN = [
+  "Restock from supplier",
+  "Customer return",
+  "Found in storage",
+  "Correction",
+];
+
+const REASONS_OUT = [
+  "Damaged",
+  "Lost",
+  "Internal use",
+  "Correction",
+  "Returned to supplier",
+];
+
+// ============================================================
+// COMPONENT
+// ============================================================
+
 export default function Inventory() {
   const { user } = useAuth();
 
-  // ---- State ----
+  // ---- Tabs ----
+  const [activeTab, setActiveTab] = useState<Tab>("catalog");
+
+  // ---- Catalog state ----
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<Tab>("catalog");
 
-  // Modal state
+  // ---- Modal state ----
   const [showModal, setShowModal] = useState(false);
-  const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState("");
 
-  // Delete confirmation state
+  // ---- Delete state ----
   const [confirmTarget, setConfirmTarget] = useState<Part | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Toast state
+  // ---- Toast ----
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // Form state
+  // ---- Add form ----
   const [form, setForm] = useState({
     part_number: "",
     name: "",
@@ -59,6 +89,15 @@ export default function Inventory() {
     quantity: "0",
     location: "",
   });
+
+  // ---- Stock adjustment state ----
+  const [adjPart, setAdjPart] = useState<number | "">("");
+  const [adjType, setAdjType] = useState<"in" | "out">("in");
+  const [adjQty, setAdjQty] = useState("1");
+  const [adjReason, setAdjReason] = useState(REASONS_IN[0]);
+  const [adjNotes, setAdjNotes] = useState("");
+  const [adjSaving, setAdjSaving] = useState(false);
+  const [adjError, setAdjError] = useState("");
 
   // ---- Fetch parts on mount ----
   useEffect(() => {
@@ -73,24 +112,23 @@ export default function Inventory() {
       const res = await getAllParts();
       setParts(res.data);
     } catch (err: any) {
-      console.error("Fetch parts error:", err);
-      setError(
-        err.response?.data?.message ||
-          "Failed to load parts. Please try again.",
-      );
+      setError(err.response?.data?.message || "Failed to load parts.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ---- Toast helper ----
   const showToast = (message: string, type: ToastType = "info") => {
     setToast({ message, type });
   };
 
-  // ---- Form handlers ----
+  // ---- Reset reason when type changes ----
+  useEffect(() => {
+    setAdjReason(adjType === "in" ? REASONS_IN[0] : REASONS_OUT[0]);
+  }, [adjType]);
+
+  // ---- Modal handlers ----
   const openAddModal = () => {
-    setEditingPart(null);
     setForm({
       part_number: "",
       name: "",
@@ -105,25 +143,8 @@ export default function Inventory() {
     setShowModal(true);
   };
 
-  const openEditModal = (part: Part) => {
-    setEditingPart(part);
-    setForm({
-      part_number: part.part_number,
-      name: part.name,
-      category: part.category,
-      description: part.description || "",
-      price: String(part.price),
-      reorder_level: String(part.reorder_level),
-      quantity: String(part.quantity),
-      location: part.location || "",
-    });
-    setModalError("");
-    setShowModal(true);
-  };
-
   const closeModal = () => {
     setShowModal(false);
-    setEditingPart(null);
     setModalError("");
   };
 
@@ -133,51 +154,95 @@ export default function Inventory() {
     setSaving(true);
 
     try {
-      if (editingPart) {
-        await updatePart(editingPart.part_id, form);
-        showToast(`"${form.name}" was updated successfully.`, "success");
-      } else {
-        await createPart(form);
-        showToast(`"${form.name}" was added to the catalog.`, "success");
-      }
+      await createPart(form);
+      showToast(`"${form.name}" was added to the catalog.`, "success");
       await fetchParts();
       closeModal();
     } catch (err: any) {
-      setModalError(
-        err.response?.data?.message || "Failed to save part. Please try again.",
-      );
+      setModalError(err.response?.data?.message || "Failed to save part.");
     } finally {
       setSaving(false);
     }
   };
 
   // ---- Delete flow ----
-  const requestDelete = (part: Part) => {
-    setConfirmTarget(part);
-  };
-
-  const cancelDelete = () => {
-    if (deleting) return;
-    setConfirmTarget(null);
-  };
+  const requestDelete = (part: Part) => setConfirmTarget(part);
+  const cancelDelete = () => !deleting && setConfirmTarget(null);
 
   const confirmDelete = async () => {
     if (!confirmTarget) return;
     setDeleting(true);
-
     try {
       await deletePart(confirmTarget.part_id);
       showToast(`"${confirmTarget.name}" was deleted.`, "success");
       setConfirmTarget(null);
       await fetchParts();
     } catch (err: any) {
-      showToast(
-        err.response?.data?.message || "Failed to delete part.",
-        "error",
-      );
+      showToast(err.response?.data?.message || "Failed to delete.", "error");
       setConfirmTarget(null);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  // ---- Stock adjustment ----
+  const selectedPart = parts.find((p) => p.part_id === adjPart);
+  const adjQtyNum = parseInt(adjQty) || 0;
+
+  const projectedQty = selectedPart
+    ? adjType === "in"
+      ? selectedPart.quantity + adjQtyNum
+      : Math.max(0, selectedPart.quantity - adjQtyNum)
+    : 0;
+
+  const handleAdjustSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setAdjError("");
+
+    if (!selectedPart) {
+      setAdjError("Please select a part.");
+      return;
+    }
+
+    if (adjQtyNum <= 0) {
+      setAdjError("Quantity must be greater than zero.");
+      return;
+    }
+
+    if (adjType === "out" && adjQtyNum > selectedPart.quantity) {
+      setAdjError(
+        `Cannot remove ${adjQtyNum} units. Only ${selectedPart.quantity} in stock.`,
+      );
+      return;
+    }
+
+    setAdjSaving(true);
+    try {
+      await adjustStock({
+        part_id: selectedPart.part_id,
+        type: adjType,
+        quantity: adjQtyNum,
+        reason: adjReason,
+        notes: adjNotes || undefined,
+      });
+
+      showToast(
+        `${adjType === "in" ? "Added" : "Removed"} ${adjQtyNum} unit(s) ${
+          adjType === "in" ? "to" : "from"
+        } "${selectedPart.name}".`,
+        "success",
+      );
+
+      // Reset form
+      setAdjQty("1");
+      setAdjNotes("");
+
+      // Refresh parts
+      await fetchParts();
+    } catch (err: any) {
+      setAdjError(err.response?.data?.message || "Failed to adjust stock.");
+    } finally {
+      setAdjSaving(false);
     }
   };
 
@@ -206,6 +271,7 @@ export default function Inventory() {
   };
 
   const isAdmin = user?.role === "admin";
+  const reasons = adjType === "in" ? REASONS_IN : REASONS_OUT;
 
   // ============================================================
   // RENDER
@@ -240,7 +306,7 @@ export default function Inventory() {
             ))}
           </div>
 
-          {/* PARTS CATALOG TAB */}
+          {/* ================= PARTS CATALOG ================= */}
           {activeTab === "catalog" && (
             <>
               <div className="inv-toolbar">
@@ -315,10 +381,13 @@ export default function Inventory() {
                                 <button
                                   type="button"
                                   className="inv-icon-btn"
-                                  onClick={() => openEditModal(part)}
-                                  title="Edit"
+                                  onClick={() => {
+                                    setAdjPart(part.part_id);
+                                    setActiveTab("adjustments");
+                                  }}
+                                  title="Adjust stock"
                                 >
-                                  <Pencil size={14} />
+                                  <Sliders size={14} />
                                 </button>
                                 {isAdmin && (
                                   <button
@@ -342,24 +411,159 @@ export default function Inventory() {
             </>
           )}
 
-          {activeTab !== "catalog" && (
+          {/* ================= STOCK ADJUSTMENTS ================= */}
+          {activeTab === "adjustments" && (
+            <div className="adj-layout adj-layout--centered">
+              <div className="adj-form-card">
+                <h2 className="adj-title">Adjust stock quantity</h2>
+
+                <form onSubmit={handleAdjustSubmit} className="adj-form">
+                  {/* Part selector */}
+                  <div className="adj-group">
+                    <label>Part</label>
+                    <select
+                      value={adjPart}
+                      onChange={(e) =>
+                        setAdjPart(e.target.value ? Number(e.target.value) : "")
+                      }
+                      className="adj-select"
+                      required
+                    >
+                      <option value="">— Select a part —</option>
+                      {parts.map((p) => (
+                        <option key={p.part_id} value={p.part_id}>
+                          {p.name} ({p.part_number}) — {p.quantity} in stock
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Type toggle */}
+                  <div className="adj-toggle">
+                    <button
+                      type="button"
+                      className={`adj-toggle__btn ${
+                        adjType === "in" ? "is-active-in" : ""
+                      }`}
+                      onClick={() => setAdjType("in")}
+                    >
+                      <PackagePlus size={14} />
+                      Stock in
+                    </button>
+                    <button
+                      type="button"
+                      className={`adj-toggle__btn ${
+                        adjType === "out" ? "is-active-out" : ""
+                      }`}
+                      onClick={() => setAdjType("out")}
+                    >
+                      <PackageMinus size={14} />
+                      Stock out
+                    </button>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="adj-group">
+                    <label>Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={adjQty}
+                      onChange={(e) => setAdjQty(e.target.value)}
+                      className="adj-input"
+                      required
+                    />
+                  </div>
+
+                  {/* Reason */}
+                  <div className="adj-group">
+                    <label>Reason</label>
+                    <select
+                      value={adjReason}
+                      onChange={(e) => setAdjReason(e.target.value)}
+                      className="adj-select"
+                    >
+                      {reasons.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="adj-group">
+                    <label>Notes (optional)</label>
+                    <textarea
+                      rows={2}
+                      value={adjNotes}
+                      onChange={(e) => setAdjNotes(e.target.value)}
+                      className="adj-input"
+                      placeholder="Add any additional notes..."
+                    />
+                  </div>
+
+                  {/* Live preview */}
+                  {selectedPart && adjQtyNum > 0 && (
+                    <div className="adj-preview">
+                      <span className="adj-preview__label">New stock</span>
+                      <span className="adj-preview__value">
+                        {selectedPart.quantity} →{" "}
+                        <strong
+                          className={
+                            projectedQty === 0
+                              ? "adj-preview__zero"
+                              : projectedQty <= selectedPart.reorder_level
+                                ? "adj-preview__low"
+                                : "adj-preview__ok"
+                          }
+                        >
+                          {projectedQty}
+                        </strong>{" "}
+                        units
+                      </span>
+                    </div>
+                  )}
+
+                  {adjError && (
+                    <div className="modal-error">
+                      <AlertTriangle size={14} />
+                      {adjError}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="adj-submit"
+                    disabled={adjSaving || !selectedPart}
+                  >
+                    {adjSaving ? "Applying..." : "Apply adjustment"}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Other tabs */}
+          {activeTab === "availability" && (
             <div className="inv-placeholder">
-              {activeTab === "adjustments" &&
-                "Stock Adjustments — coming soon."}
-              {activeTab === "availability" &&
-                "Check Availability — coming soon."}
-              {activeTab === "settings" && "Inventory Settings — coming soon."}
+              Check Availability — coming soon.
+            </div>
+          )}
+          {activeTab === "settings" && (
+            <div className="inv-placeholder">
+              Inventory Settings — coming soon.
             </div>
           )}
         </div>
       </div>
 
-      {/* ADD / EDIT MODAL */}
+      {/* ADD MODAL */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{editingPart ? "Edit Part" : "Add New Part"}</h2>
+              <h2>Add New Part</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -409,7 +613,6 @@ export default function Inventory() {
                     onChange={(e) =>
                       setForm({ ...form, category: e.target.value })
                     }
-                    placeholder="Brakes, Engine, Electrical..."
                     required
                   />
                 </div>
@@ -430,7 +633,7 @@ export default function Inventory() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Quantity</label>
+                  <label>Initial Quantity</label>
                   <input
                     type="number"
                     min="0"
@@ -461,7 +664,6 @@ export default function Inventory() {
                   onChange={(e) =>
                     setForm({ ...form, location: e.target.value })
                   }
-                  placeholder="Shelf A1, Bin 3..."
                 />
               </div>
 
@@ -485,11 +687,7 @@ export default function Inventory() {
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary" disabled={saving}>
-                  {saving
-                    ? "Saving..."
-                    : editingPart
-                      ? "Update Part"
-                      : "Add Part"}
+                  {saving ? "Saving..." : "Add Part"}
                 </button>
               </div>
             </form>

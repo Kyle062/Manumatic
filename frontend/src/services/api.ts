@@ -297,3 +297,5 @@ export const adjustStock = async (data: {
 
   return api.post("/inventory/adjust", data);
 };
+
+
