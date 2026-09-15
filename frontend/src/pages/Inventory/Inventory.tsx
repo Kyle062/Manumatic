@@ -18,6 +18,8 @@ import {
   Users as UsersIcon,
   Key,
   Power,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   getAllParts,
@@ -159,7 +161,12 @@ export default function Inventory() {
 
   // ---- Reset Password Modal ----
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
-  const [resetPasswordValue, setResetPasswordValue] = useState("");
+  const [resetAdminPassword, setResetAdminPassword] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [showResetAdminPw, setShowResetAdminPw] = useState(false);
+  const [showResetNewPw, setShowResetNewPw] = useState(false);
+  const [showResetConfirmPw, setShowResetConfirmPw] = useState(false);
   const [resetSaving, setResetSaving] = useState(false);
   const [resetError, setResetError] = useState("");
 
@@ -469,14 +476,24 @@ export default function Inventory() {
   // ---- Reset Password flow ----
   const openResetPasswordModal = (u: AppUser) => {
     setResetTarget(u);
-    setResetPasswordValue("");
+    setResetAdminPassword("");
+    setResetNewPassword("");
+    setResetConfirmPassword("");
+    setShowResetAdminPw(false);
+    setShowResetNewPw(false);
+    setShowResetConfirmPw(false);
     setResetError("");
   };
 
   const closeResetPasswordModal = () => {
     if (resetSaving) return;
     setResetTarget(null);
-    setResetPasswordValue("");
+    setResetAdminPassword("");
+    setResetNewPassword("");
+    setResetConfirmPassword("");
+    setShowResetAdminPw(false);
+    setShowResetNewPw(false);
+    setShowResetConfirmPw(false);
     setResetError("");
   };
 
@@ -485,14 +502,34 @@ export default function Inventory() {
     if (!resetTarget) return;
     setResetError("");
 
-    if (resetPasswordValue.length < 6) {
-      setResetError("Password must be at least 6 characters.");
+    // Validate fields
+    if (!resetAdminPassword) {
+      setResetError("Please enter your password to confirm.");
+      return;
+    }
+
+    if (!resetNewPassword || resetNewPassword.length < 6) {
+      setResetError("New password must be at least 6 characters.");
+      return;
+    }
+
+    if (resetNewPassword !== resetConfirmPassword) {
+      setResetError("New password and confirmation do not match.");
+      return;
+    }
+
+    if (resetAdminPassword === resetNewPassword) {
+      setResetError("New password must be different from your own.");
       return;
     }
 
     setResetSaving(true);
     try {
-      await resetUserPassword(resetTarget.user_id, resetPasswordValue);
+      await resetUserPassword(
+        resetTarget.user_id,
+        resetAdminPassword,
+        resetNewPassword,
+      );
       showToast(`Password for "${resetTarget.username}" was reset.`, "success");
       closeResetPasswordModal();
     } catch (err: any) {
@@ -1381,7 +1418,7 @@ export default function Inventory() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="modal-header">
-              <h2>Reset password</h2>
+              <h2>Reset user password</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -1393,8 +1430,10 @@ export default function Inventory() {
 
             <form className="modal-form" onSubmit={handleResetPasswordSubmit}>
               <div className="reset-context">
-                Set a new password for <strong>{resetTarget.name}</strong> (@
-                {resetTarget.username}).
+                You are resetting the password for{" "}
+                <strong>{resetTarget.name}</strong> (@
+                {resetTarget.username}). Please confirm this action with your
+                own password.
               </div>
 
               {resetError && (
@@ -1404,17 +1443,90 @@ export default function Inventory() {
                 </div>
               )}
 
+              {/* Admin's own password */}
+              <div className="form-group">
+                <label>Your password *</label>
+                <div className="pw-input-wrap">
+                  <input
+                    type={showResetAdminPw ? "text" : "password"}
+                    value={resetAdminPassword}
+                    onChange={(e) => setResetAdminPassword(e.target.value)}
+                    required
+                    autoFocus
+                    placeholder="Enter your own password"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    className="pw-eye-btn"
+                    onClick={() => setShowResetAdminPw((v) => !v)}
+                    aria-label={
+                      showResetAdminPw ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showResetAdminPw ? (
+                      <EyeOff size={16} />
+                    ) : (
+                      <Eye size={16} />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* New password */}
               <div className="form-group">
                 <label>New password * (min 6 characters)</label>
-                <input
-                  type="password"
-                  value={resetPasswordValue}
-                  onChange={(e) => setResetPasswordValue(e.target.value)}
-                  required
-                  minLength={6}
-                  autoFocus
-                  placeholder="Enter new password"
-                />
+                <div className="pw-input-wrap">
+                  <input
+                    type={showResetNewPw ? "text" : "password"}
+                    value={resetNewPassword}
+                    onChange={(e) => setResetNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="pw-eye-btn"
+                    onClick={() => setShowResetNewPw((v) => !v)}
+                    aria-label={
+                      showResetNewPw ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showResetNewPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm new password */}
+              <div className="form-group">
+                <label>Confirm new password *</label>
+                <div className="pw-input-wrap">
+                  <input
+                    type={showResetConfirmPw ? "text" : "password"}
+                    value={resetConfirmPassword}
+                    onChange={(e) => setResetConfirmPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    placeholder="Re-enter new password"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="pw-eye-btn"
+                    onClick={() => setShowResetConfirmPw((v) => !v)}
+                    aria-label={
+                      showResetConfirmPw ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showResetConfirmPw ? (
+                      <EyeOff size={16} />
+                    ) : (
+                      <Eye size={16} />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="modal-actions">

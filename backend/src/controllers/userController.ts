@@ -43,19 +43,51 @@ export const createUser = async (
 // PUT /api/users/:id/password
 // ============================================================
 
+// ============================================================
+// PUT /api/users/:id/password
+// Admin verifies their OWN password before resetting another user's
+// ============================================================
+
 export const resetPassword = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ): Promise<void> => {
   try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authenticated." });
+      return;
+    }
+
     const id = Number(req.params.id);
     if (isNaN(id)) {
       res.status(400).json({ message: "Invalid user ID." });
       return;
     }
 
-    await userService.resetPassword(id, req.body.password);
+    const { admin_password, new_password } = req.body;
+
+    if (!admin_password || !new_password) {
+      res.status(400).json({
+        message: "Both admin password and new password are required."
+      });
+      return;
+    }
+
+    if (new_password.length < 6) {
+      res.status(400).json({
+        message: "New password must be at least 6 characters."
+      });
+      return;
+    }
+
+    await userService.resetPassword(
+      req.user.user_id,
+      id,
+      admin_password,
+      new_password
+    );
+
     res.json({ message: "Password reset successfully." });
   } catch (error) {
     next(error);
