@@ -281,8 +281,12 @@ export const generateReceiptNo = async (): Promise<string> => {
   const date = new Date();
   const datePart = date.toISOString().split("T")[0].replace(/-/g, "");
 
+  // Count DISTINCT receipt numbers for today
+  // (because multi-item sales create multiple rows with the same receipt_no)
   const [rows] = await pool.execute(
-    "SELECT COUNT(*) AS total FROM sales WHERE DATE(sale_date) = CURDATE()"
+    `SELECT COUNT(DISTINCT receipt_no) AS total
+     FROM sales
+     WHERE DATE(sale_date) = CURDATE()`
   );
 
   const count = Number((rows as any[])[0].total) + 1;

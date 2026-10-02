@@ -1,0 +1,481 @@
+/* ============================================================
+   REPORTS PAGE
+   ============================================================ */
+
+.rpt-content {
+  flex: 1;
+  overflow-y: auto;
+  background: #f1f3f4;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+
+.rpt-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  overflow-x: auto;
+}
+
+.rpt-tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.rpt-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 14px 16px;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+  position: relative;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+
+.rpt-tab:hover {
+  color: #0f6b5c;
+}
+
+.rpt-tab.is-active {
+  color: #0f6b5c;
+}
+
+.rpt-tab.is-active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: #0f6b5c;
+}
+
+/* ============================================================
+   BODY
+   ============================================================ */
+
+.rpt-body {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ============================================================
+   TOOLBAR
+   ============================================================ */
+
+.rpt-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rpt-range {
+  display: inline-flex;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 4px;
+  gap: 2px;
+}
+
+.rpt-range__btn {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.rpt-range__btn:hover {
+  color: #0f6b5c;
+}
+
+.rpt-range__btn.is-active {
+  background: #0f6b5c;
+  color: #ffffff;
+}
+
+.rpt-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4b5563;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.rpt-export:hover {
+  background: #f9fafb;
+  border-color: #0f6b5c;
+  color: #0f6b5c;
+}
+
+.rpt-summary-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fff8e6;
+  border: 1px solid #f7e0a3;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #8a5a00;
+  font-weight: 500;
+}
+
+.rpt-summary-text strong {
+  color: #6b4500;
+  font-weight: 700;
+}
+
+/* ============================================================
+   KPI CARDS
+   ============================================================ */
+
+.rpt-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.rpt-kpi {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow 0.15s, transform 0.1s;
+}
+
+.rpt-kpi:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
+.rpt-kpi--warn {
+  border-left: 4px solid #dc3545;
+}
+
+.rpt-kpi__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rpt-kpi__icon--green {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.rpt-kpi__icon--blue {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.rpt-kpi__icon--purple {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.rpt-kpi__icon--orange {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rpt-kpi__icon--red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.rpt-kpi__label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.rpt-kpi__value {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+
+.rpt-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 22px 24px;
+  overflow: hidden;
+}
+
+.rpt-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.rpt-card__head h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rpt-card__hint {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rpt-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.rpt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rpt-table th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 10px 8px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.rpt-table td {
+  padding: 12px 8px;
+  color: #1f2937;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+}
+
+.rpt-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rpt-table tbody tr:hover td {
+  background: #f9fafb;
+}
+
+.rpt-right {
+  text-align: right;
+}
+
+.rpt-cell-name {
+  font-weight: 600;
+  color: #111827;
+}
+
+.rpt-cell-meta {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+.rpt-rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #0f6b5c;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 50%;
+}
+
+/* Tags */
+.rpt-tag {
+  display: inline-block;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rpt-tag--admin {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.rpt-tag--manager {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.rpt-tag--warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Urgency badges */
+.rpt-urgency {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rpt-urgency--critical {
+  background: #fee2e2;
+  color: #991b1b;
+  animation: pulse-critical 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-critical {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+.rpt-urgency--high {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rpt-urgency--medium {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.rpt-urgency--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.rpt-urgency--watch {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* ============================================================
+   STATES
+   ============================================================ */
+
+.rpt-loading,
+.rpt-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.rpt-empty--good {
+  background: #f0fdf4;
+  color: #065f46;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 1024px) {
+  .rpt-kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .rpt-row-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .rpt-body {
+    padding: 16px;
+  }
+
+  .rpt-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .rpt-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rpt-tabs {
+    padding: 0 12px;
+  }
+
+  .rpt-tab {
+    padding: 12px 10px;
+    font-size: 12px;
+  }
+
+  .rpt-table {
+    font-size: 12px;
+  }
+
+  .rpt-table th,
+  .rpt-table td {
+    padding: 8px 4px;
+  }
+}

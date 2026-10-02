@@ -5,6 +5,7 @@ import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Inventory from "./pages/Inventory/Inventory";
 import Sales from "./pages/Sales/Sales";
+import Reports from "./pages/Reports/Reports";
 
 export default function App() {
   return (
@@ -45,12 +46,11 @@ export default function App() {
             }
           />
 
-          {/* Placeholder — Reports */}
           <Route
             path="/reports"
             element={
               <RequireAuth>
-                <div style={{ padding: 40 }}>Reports — Coming Soon</div>
+                <Reports />
               </RequireAuth>
             }
           />
