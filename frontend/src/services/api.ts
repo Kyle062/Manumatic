@@ -362,3 +362,55 @@ export const checkout = async (data: {
 
   return api.post("/inventory/checkout", data);
 };
+
+// ============================================================
+// REPORTS
+// ============================================================
+
+export const getSalesOverview = async (range: string = "today") => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: {} };
+  }
+  return api.get(`/reports/sales-overview?range=${range}`);
+};
+
+export const getInventoryValuation = async () => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: {} };
+  }
+  return api.get("/reports/inventory-valuation");
+};
+
+export const getTopMovers = async (limit: number = 5) => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: { top: [], slow: [] } };
+  }
+  return api.get(`/reports/top-movers?limit=${limit}`);
+};
+
+export const getReorderPriority = async () => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: [] };
+  }
+  return api.get("/reports/reorder-priority");
+};
+
+export const getLowStockForecast = async () => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: [] };
+  }
+  return api.get("/reports/low-stock-forecast");
+};
+
+export const getCashierPerformance = async () => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: [] };
+  }
+  return api.get("/reports/cashier-performance");
+};
