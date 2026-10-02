@@ -10,6 +10,7 @@ import authRoutes from "./routes/authRoutes";
 import dashboardRoutes from "./routes/dashboardRoutes";
 import inventoryRoutes from "./routes/inventoryRoutes";
 import userRoutes from "./routes/userRoutes";
+import reportRoutes from "./routes/reportRoutes";
 // Load env vars
 dotenv.config();
 
