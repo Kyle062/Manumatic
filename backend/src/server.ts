@@ -55,6 +55,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/reports", reportRoutes);
 // ============================================================
 // ERROR HANDLERS (must be last)
 // ============================================================
