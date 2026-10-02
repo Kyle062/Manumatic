@@ -4,6 +4,7 @@ import RequireAuth from "./components/RequireAuth";
 import Login from "./pages/Login/Login";
 import Dashboard from "./pages/Dashboard/Dashboard";
 import Inventory from "./pages/Inventory/Inventory";
+import Sales from "./pages/Sales/Sales";
 
 export default function App() {
   return (
@@ -35,16 +36,16 @@ export default function App() {
             }
           />
 
-          {/* Placeholders for future pages */}
           <Route
             path="/sales"
             element={
               <RequireAuth>
-                <div style={{ padding: 40 }}>Sales — Coming Soon</div>
+                <Sales />
               </RequireAuth>
             }
           />
 
+          {/* Placeholder — Reports */}
           <Route
             path="/reports"
             element={
