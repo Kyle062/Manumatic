@@ -2,7 +2,7 @@ import pool from "../config/database";
 import { Sale, SaleWithDetails } from "../types";
 
 // ============================================================
-// CREATE SALE
+// CREATE SALE (single row — legacy)
 // ============================================================
 
 export interface CreateSaleInput {
@@ -30,6 +30,87 @@ export const create = async (data: CreateSaleInput): Promise<number> => {
   );
 
   return (result as any).insertId;
+};
+
+// ============================================================
+// CREATE SALE WITH ITEMS (transaction + stock deduction)
+// ============================================================
+
+export interface CreateSalePayload {
+  user_id: number;
+  items: Array<{
+    part_id: number;
+    quantity: number;
+    unit_price: number;
+  }>;
+  payment_type: string;
+  receipt_no: string;
+}
+
+export const createSaleWithItems = async (
+  payload: CreateSalePayload
+): Promise<{ sale_ids: number[]; total: number }> => {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    const saleIds: number[] = [];
+    let grandTotal = 0;
+
+    for (const item of payload.items) {
+      const [partRows] = await connection.execute(
+        "SELECT name, quantity FROM parts WHERE part_id = ? FOR UPDATE",
+        [item.part_id]
+      );
+
+      const parts = partRows as any[];
+      if (parts.length === 0) {
+        throw { status: 404, message: `Part ID ${item.part_id} not found.` };
+      }
+
+      const part = parts[0];
+
+      if (part.quantity < item.quantity) {
+        throw {
+          status: 400,
+          message: `Insufficient stock for "${part.name}". Only ${part.quantity} available.`
+        };
+      }
+
+      const lineTotal = item.quantity * item.unit_price;
+      grandTotal += lineTotal;
+
+      const [result] = await connection.execute(
+        `INSERT INTO sales
+           (user_id, part_id, quantity, total_price, payment_type, receipt_no)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          payload.user_id,
+          item.part_id,
+          item.quantity,
+          lineTotal,
+          payload.payment_type,
+          payload.receipt_no
+        ]
+      );
+
+      saleIds.push((result as any).insertId);
+
+      await connection.execute(
+        "UPDATE parts SET quantity = quantity - ? WHERE part_id = ?",
+        [item.quantity, item.part_id]
+      );
+    }
+
+    await connection.commit();
+    return { sale_ids: saleIds, total: grandTotal };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
 };
 
 // ============================================================
@@ -110,9 +191,7 @@ export const getTodayStats = async (): Promise<{
 };
 
 export const countSales = async (): Promise<number> => {
-  const [rows] = await pool.execute(
-    "SELECT COUNT(*) AS total FROM sales"
-  );
+  const [rows] = await pool.execute("SELECT COUNT(*) AS total FROM sales");
   return Number((rows as any[])[0].total);
 };
 
@@ -171,7 +250,6 @@ export const getSalesTrend = async (): Promise<
 
   const raw = rows as any[];
 
-  // Map DB rows by ISO date string
   const map = new Map<string, number>();
   for (const row of raw) {
     const d = new Date(row.day);
@@ -179,7 +257,6 @@ export const getSalesTrend = async (): Promise<
     map.set(key, Number(row.sales));
   }
 
-  // Fill missing days with 0
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const out: Array<{ day: string; sales: number }> = [];
 
@@ -204,7 +281,6 @@ export const generateReceiptNo = async (): Promise<string> => {
   const date = new Date();
   const datePart = date.toISOString().split("T")[0].replace(/-/g, "");
 
-  // Count today's sales to get sequence
   const [rows] = await pool.execute(
     "SELECT COUNT(*) AS total FROM sales WHERE DATE(sale_date) = CURDATE()"
   );

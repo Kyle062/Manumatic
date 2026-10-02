@@ -1,4 +1,5 @@
 import * as partModel from "../models/partModel";
+import * as saleModel from "../models/saleModel";
 import { Part, CreatePartBody, UpdatePartBody } from "../types";
 
 // ============================================================
@@ -30,7 +31,6 @@ export const getPartById = async (id: number): Promise<Part> => {
 export const createPart = async (
   body: CreatePartBody
 ): Promise<{ part_id: number }> => {
-  // ---- Validate required fields ----
   const part_number = body.part_number?.trim();
   const name = body.name?.trim();
   const category = body.category?.trim();
@@ -45,7 +45,6 @@ export const createPart = async (
     throw { status: 400, message: "Category is required." };
   }
 
-  // ---- Validate numeric fields ----
   const price = Number(body.price);
   if (isNaN(price) || price < 0) {
     throw { status: 400, message: "Price must be a positive number." };
@@ -61,13 +60,11 @@ export const createPart = async (
     throw { status: 400, message: "Quantity must be a positive number." };
   }
 
-  // ---- Check for duplicate part_number ----
   const existing = await partModel.findByPartNumber(part_number);
   if (existing) {
     throw { status: 400, message: "Part number already exists." };
   }
 
-  // ---- Insert ----
   const part_id = await partModel.create({
     part_number,
     name,
@@ -91,13 +88,11 @@ export const updatePart = async (
   id: number,
   body: UpdatePartBody
 ): Promise<void> => {
-  // ---- Check if part exists ----
   const current = await partModel.findById(id);
   if (!current) {
     throw { status: 404, message: "Part not found." };
   }
 
-  // ---- Merge with existing values ----
   const part_number = body.part_number?.trim() ?? current.part_number;
   const name = body.name?.trim() ?? current.name;
   const category = body.category?.trim() ?? current.category;
@@ -133,7 +128,6 @@ export const updatePart = async (
 
   const image = body.image !== undefined ? body.image : current.image;
 
-  // ---- Check duplicate part_number (if changed) ----
   if (part_number !== current.part_number) {
     const duplicate = await partModel.findByPartNumber(part_number);
     if (duplicate) {
@@ -141,7 +135,6 @@ export const updatePart = async (
     }
   }
 
-  // ---- Update ----
   await partModel.update({
     part_id: id,
     part_number,
@@ -188,7 +181,7 @@ export const getLowStockParts = async (): Promise<Part[]> => {
 };
 
 // ============================================================
-// ADJUST STOCK (no logging)
+// ADJUST STOCK
 // ============================================================
 
 export interface AdjustStockBody {
@@ -202,7 +195,6 @@ export interface AdjustStockBody {
 export const adjustStock = async (
   body: AdjustStockBody
 ): Promise<{ old_quantity: number; new_quantity: number }> => {
-  // ---- Validate ----
   if (!body.part_id || isNaN(body.part_id)) {
     throw { status: 400, message: "Valid part ID is required." };
   }
@@ -216,7 +208,6 @@ export const adjustStock = async (
     throw { status: 400, message: "Quantity must be a positive number." };
   }
 
-  // ---- Fetch part ----
   const part = await partModel.findById(body.part_id);
   if (!part) {
     throw { status: 404, message: "Part not found." };
@@ -237,7 +228,6 @@ export const adjustStock = async (
     newQty = oldQty - qty;
   }
 
-  // ---- Update parts.quantity ----
   await partModel.update({
     part_id: part.part_id,
     part_number: part.part_number,
@@ -252,4 +242,83 @@ export const adjustStock = async (
   });
 
   return { old_quantity: oldQty, new_quantity: newQty };
+};
+
+// ============================================================
+// CHECKOUT (POS — Cash Only)
+// ============================================================
+
+export interface CheckoutItem {
+  part_id: number;
+  quantity: number;
+}
+
+export interface CheckoutBody {
+  items: CheckoutItem[];
+  payment_type?: string;
+}
+
+export const checkout = async (
+  userId: number,
+  body: CheckoutBody
+): Promise<{
+  receipt_no: string;
+  total: number;
+  item_count: number;
+}> => {
+  if (!body.items || body.items.length === 0) {
+    throw { status: 400, message: "Cart is empty." };
+  }
+
+  const payment_type = "Cash";
+
+  const itemsWithPrices: Array<{
+    part_id: number;
+    quantity: number;
+    unit_price: number;
+  }> = [];
+
+  for (const item of body.items) {
+    if (!item.part_id || isNaN(item.part_id)) {
+      throw { status: 400, message: "Invalid part ID in cart." };
+    }
+
+    const qty = Number(item.quantity);
+    if (isNaN(qty) || qty <= 0) {
+      throw { status: 400, message: "Quantity must be greater than zero." };
+    }
+
+    const part = await partModel.findById(item.part_id);
+    if (!part) {
+      throw { status: 404, message: `Part ID ${item.part_id} not found.` };
+    }
+
+    if (part.quantity < qty) {
+      throw {
+        status: 400,
+        message: `Insufficient stock for "${part.name}". Only ${part.quantity} available.`
+      };
+    }
+
+    itemsWithPrices.push({
+      part_id: item.part_id,
+      quantity: qty,
+      unit_price: Number(part.price)
+    });
+  }
+
+  const receipt_no = await saleModel.generateReceiptNo();
+
+  const result = await saleModel.createSaleWithItems({
+    user_id: userId,
+    items: itemsWithPrices,
+    payment_type,
+    receipt_no
+  });
+
+  return {
+    receipt_no,
+    total: result.total,
+    item_count: itemsWithPrices.reduce((sum, i) => sum + i.quantity, 0)
+  };
 };

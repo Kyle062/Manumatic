@@ -340,3 +340,25 @@ export const createSale = async (saleData: any) => {
 
   return api.post("/sales", saleData);
 };
+// ============================================================
+// CHECKOUT (POS — Cash Only)
+// ============================================================
+
+export const checkout = async (data: {
+  items: Array<{ part_id: number; quantity: number }>;
+  payment_type: string;
+}) => {
+  if (USE_MOCK) {
+    await delay(500);
+    return {
+      data: {
+        message: "Mock mode: use real backend.",
+        receipt_no: "RCP-MOCK-" + Date.now(),
+        total: 0,
+        item_count: 0,
+      },
+    };
+  }
+
+  return api.post("/inventory/checkout", data);
+};

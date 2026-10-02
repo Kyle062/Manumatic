@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as inventoryService from "../services/inventoryService";
-import { CreatePartBody, UpdatePartBody } from "../types";
+import { CreatePartBody, UpdatePartBody, AuthRequest } from "../types";
 
 // ============================================================
 // GET /api/inventory
@@ -153,9 +153,6 @@ export const getLowStock = async (
   }
 };
 
-import { AuthRequest } from "../types";
-
-
 // ============================================================
 // POST /api/inventory/adjust
 // ============================================================
@@ -175,6 +172,35 @@ export const adjustStock = async (
 
     res.json({
       message: "Stock adjusted successfully.",
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================================
+// POST /api/inventory/checkout
+// ============================================================
+
+export const checkout = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ message: "Not authenticated." });
+      return;
+    }
+
+    const result = await inventoryService.checkout(
+      req.user.user_id,
+      req.body
+    );
+
+    res.status(201).json({
+      message: "Sale completed successfully.",
       ...result
     });
   } catch (error) {
