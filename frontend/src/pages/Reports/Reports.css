@@ -105,7 +105,9 @@
   color: #6b7280;
   cursor: pointer;
   font-family: inherit;
-  transition: background-color 0.15s, color 0.15s;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
 }
 
 .rpt-range__btn:hover {
@@ -130,7 +132,10 @@
   color: #4b5563;
   cursor: pointer;
   font-family: inherit;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .rpt-export:hover {
@@ -175,7 +180,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: box-shadow 0.15s, transform 0.1s;
+  transition:
+    box-shadow 0.15s,
+    transform 0.1s;
 }
 
 .rpt-kpi:hover {
@@ -275,16 +282,18 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
+  align-items: start;
 }
 
 /* ============================================================
-   TABLE
+   TABLE — ALIGNED COLUMNS
    ============================================================ */
 
 .rpt-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  table-layout: fixed;
 }
 
 .rpt-table th {
@@ -294,15 +303,18 @@
   color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 10px 8px;
+  padding: 10px 12px;
   border-bottom: 1px solid #f3f4f6;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .rpt-table td {
-  padding: 12px 8px;
+  padding: 14px 12px;
   color: #1f2937;
   border-bottom: 1px solid #f3f4f6;
   vertical-align: middle;
+  text-align: left;
 }
 
 .rpt-table tbody tr:last-child td {
@@ -313,19 +325,69 @@
   background: #f9fafb;
 }
 
-.rpt-right {
+/* Column widths — keep values aligned under headers */
+
+/* Right-align numeric + money columns */
+.rpt-table th.rpt-right,
+.rpt-table td.rpt-right {
   text-align: right;
 }
+
+/* Fixed widths per column type */
+.rpt-table .rpt-col-rank {
+  width: 50px;
+  text-align: center;
+}
+
+.rpt-table .rpt-col-num {
+  width: 100px;
+}
+
+.rpt-table .rpt-col-money {
+  width: 140px;
+}
+
+.rpt-table .rpt-col-date {
+  width: 110px;
+}
+
+.rpt-table .rpt-col-days {
+  width: 160px;
+}
+
+.rpt-table .rpt-col-urgency {
+  width: 110px;
+}
+
+.rpt-table .rpt-col-role {
+  width: 110px;
+}
+
+/* Override centering for rank */
+.rpt-table th.rpt-col-rank,
+.rpt-table td.rpt-col-rank {
+  text-align: center;
+}
+
+/* ============================================================
+   TABLE CELL HELPERS
+   ============================================================ */
 
 .rpt-cell-name {
   font-weight: 600;
   color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rpt-cell-meta {
   font-size: 11px;
   color: #9ca3af;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rpt-rank {
@@ -344,12 +406,12 @@
 /* Tags */
 .rpt-tag {
   display: inline-block;
-  padding: 3px 8px;
-  font-size: 11px;
+  padding: 3px 9px;
+  font-size: 10px;
   font-weight: 700;
   border-radius: 6px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
 }
 
 .rpt-tag--admin {
@@ -385,7 +447,8 @@
 }
 
 @keyframes pulse-critical {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -411,6 +474,94 @@
 .rpt-urgency--watch {
   background: #dbeafe;
   color: #1e40af;
+}
+
+/* ============================================================
+   PIE CHART — ENHANCED
+   ============================================================ */
+
+.rpt-pie-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 10px;
+}
+
+.rpt-pie-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.rpt-pie-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.rpt-pie-legend__label {
+  flex: 1;
+  color: #4b5563;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rpt-pie-legend__value {
+  color: #111827;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.rpt-pie-wrap {
+  position: relative;
+  padding: 8px 0 0 0;
+}
+
+.rpt-pie-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.rpt-pie-center__label {
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+}
+
+.rpt-pie-center__value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f6b5c;
+  letter-spacing: -0.02em;
+}
+
+
+.rpt-cat-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 8px;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 /* ============================================================
@@ -445,6 +596,10 @@
   .rpt-row-2 {
     grid-template-columns: 1fr;
   }
+
+  .rpt-pie-legend {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
@@ -477,5 +632,9 @@
   .rpt-table th,
   .rpt-table td {
     padding: 8px 4px;
+  }
+
+  .rpt-table {
+    table-layout: auto;
   }
 }

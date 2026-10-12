@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Toast, { ToastType } from "../../components/Toast";
@@ -26,7 +26,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend,
 } from "recharts";
 import {
   getSalesOverview,
@@ -57,14 +56,18 @@ interface ToastState {
   type: ToastType;
 }
 
+// Pie chart colors — distinct and professional
 const CATEGORY_COLORS = [
-  "#0f6b5c",
-  "#1d4ed8",
-  "#7c3aed",
-  "#b45309",
-  "#dc2626",
-  "#0891b2",
-  "#65a30d",
+  "#0f6b5c", // teal
+  "#1d4ed8", // blue
+  "#7c3aed", // purple
+  "#b45309", // orange
+  "#dc2626", // red
+  "#0891b2", // cyan
+  "#65a30d", // green
+  "#db2777", // pink
+  "#4f46e5", // indigo
+  "#059669", // emerald
 ];
 
 // ============================================================
@@ -216,9 +219,7 @@ export default function Reports() {
               <button
                 key={id}
                 type="button"
-                className={`rpt-tab ${
-                  activeTab === id ? "is-active" : ""
-                }`}
+                className={`rpt-tab ${activeTab === id ? "is-active" : ""}`}
                 onClick={() => setActiveTab(id)}
               >
                 <Icon size={14} />
@@ -232,7 +233,6 @@ export default function Reports() {
               ============================================================ */}
           {activeTab === "sales" && (
             <div className="rpt-body">
-              {/* Range selector */}
               <div className="rpt-toolbar">
                 <div className="rpt-range">
                   {(["today", "week", "month"] as Range[]).map((r) => (
@@ -272,7 +272,6 @@ export default function Reports() {
                 <div className="rpt-empty">No data.</div>
               ) : (
                 <>
-                  {/* KPI Cards */}
                   <div className="rpt-kpis">
                     <div className="rpt-kpi">
                       <div className="rpt-kpi__icon rpt-kpi__icon--green">
@@ -315,13 +314,12 @@ export default function Reports() {
                     </div>
                   </div>
 
-                  {/* Chart */}
                   <div className="rpt-card">
                     <div className="rpt-card__head">
                       <h3>Revenue Trend</h3>
                       <span className="rpt-card__hint">
                         {range === "today"
-                          ? "Today's hourly activity"
+                          ? "Today"
                           : range === "week"
                           ? "Last 7 days"
                           : "Last 30 days"}
@@ -329,7 +327,7 @@ export default function Reports() {
                     </div>
 
                     {salesData.daily && salesData.daily.length > 0 ? (
-                      <div style={{ width: "100%", height: 260 }}>
+                      <div style={{ width: "100%", height: 280 }}>
                         <ResponsiveContainer>
                           <BarChart
                             data={salesData.daily}
@@ -364,8 +362,10 @@ export default function Reports() {
                                 borderRadius: 8,
                                 border: "1px solid #e5e7eb",
                               }}
-                              formatter={(v: any) => money(Number(v))}
-                              labelFormatter={(value) => shortDate(String(value))}
+                              formatter={(value) => money(Number(value))}
+                              labelFormatter={(value) =>
+                                shortDate(String(value))
+                              }
                             />
                             <Bar
                               dataKey="revenue"
@@ -455,75 +455,150 @@ export default function Reports() {
                   </div>
 
                   <div className="rpt-row-2">
-                    {/* Category breakdown */}
+                    {/* ENHANCED PIE CHART */}
                     <div className="rpt-card">
                       <div className="rpt-card__head">
                         <h3>Value by Category</h3>
+                        <span className="rpt-card__hint">
+                          {valuationData.by_category.length} categories
+                        </span>
                       </div>
-                      <div style={{ width: "100%", height: 280 }}>
-                        <ResponsiveContainer>
-                          <PieChart>
-                            <Pie
-                              data={valuationData.by_category}
-                              dataKey="value"
-                              nameKey="category"
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={90}
-                              paddingAngle={2}
-                            >
-                              {valuationData.by_category.map(
-                                (entry: any, idx: number) => (
-                                  <Cell
-                                    key={idx}
-                                    fill={
+
+                      {/* Legend grid ABOVE the chart for clarity */}
+                      <div className="rpt-pie-legend">
+                        {valuationData.by_category.map(
+                          (c: any, idx: number) => {
+                            const pct =
+                              valuationData.total_value > 0
+                                ? (c.value / valuationData.total_value) * 100
+                                : 0;
+                            return (
+                              <div
+                                className="rpt-pie-legend__item"
+                                key={c.category}
+                              >
+                                <span
+                                  className="rpt-pie-legend__dot"
+                                  style={{
+                                    background:
                                       CATEGORY_COLORS[
                                         idx % CATEGORY_COLORS.length
-                                      ]
-                                    }
-                                  />
-                                )
-                              )}
-                            </Pie>
-                            <Tooltip
-                              formatter={(v: any) => money(Number(v))}
-                              contentStyle={{
-                                fontSize: 12,
-                                borderRadius: 8,
-                                border: "1px solid #e5e7eb",
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
+                                      ],
+                                  }}
+                                />
+                                <span className="rpt-pie-legend__label">
+                                  {c.category}
+                                </span>
+                                <span className="rpt-pie-legend__value">
+                                  {pct.toFixed(1)}%
+                                </span>
+                              </div>
+                            );
+                          }
+                        )}
+                      </div>
+
+                      {/* Pie with center label */}
+                      <div className="rpt-pie-wrap">
+                        <div style={{ width: "100%", height: 260 }}>
+                          <ResponsiveContainer>
+                            <PieChart>
+                              <Pie
+                                data={valuationData.by_category}
+                                dataKey="value"
+                                nameKey="category"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={70}
+                                outerRadius={105}
+                                paddingAngle={3}
+                                stroke="#ffffff"
+                                strokeWidth={2}
+                              >
+                                {valuationData.by_category.map(
+                                  (entry: any, idx: number) => (
+                                    <Cell
+                                      key={idx}
+                                      fill={
+                                        CATEGORY_COLORS[
+                                          idx % CATEGORY_COLORS.length
+                                        ]
+                                      }
+                                    />
+                                  )
+                                )}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={{
+                                  fontSize: 12,
+                                  borderRadius: 8,
+                                  border: "1px solid #e5e7eb",
+                                  boxShadow:
+                                    "0 4px 12px rgba(0,0,0,0.06)",
+                                }}
+                                formatter={(value: any) =>
+                                  money(Number(value))
+                                }
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* Center label */}
+                        <div className="rpt-pie-center">
+                          <span className="rpt-pie-center__label">
+                            Total Value
+                          </span>
+                          <span className="rpt-pie-center__value">
+                            {shortMoney(valuationData.total_value)}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Category table */}
+                    {/* BREAKDOWN TABLE */}
                     <div className="rpt-card">
                       <div className="rpt-card__head">
                         <h3>Breakdown</h3>
+                        <span className="rpt-card__hint">By category</span>
                       </div>
                       <table className="rpt-table">
                         <thead>
                           <tr>
                             <th>Category</th>
-                            <th className="rpt-right">Parts</th>
-                            <th className="rpt-right">Units</th>
-                            <th className="rpt-right">Value</th>
+                            <th className="rpt-right rpt-col-num">Parts</th>
+                            <th className="rpt-right rpt-col-num">Units</th>
+                            <th className="rpt-right rpt-col-money">Value</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {valuationData.by_category.map((c: any) => (
-                            <tr key={c.category}>
-                              <td>{c.category}</td>
-                              <td className="rpt-right">{c.part_count}</td>
-                              <td className="rpt-right">{c.units}</td>
-                              <td className="rpt-right">
-                                {money(c.value)}
-                              </td>
-                            </tr>
-                          ))}
+                          {valuationData.by_category.map(
+                            (c: any, idx: number) => (
+                              <tr key={c.category}>
+                                <td>
+                                  <span
+                                    className="rpt-cat-dot"
+                                    style={{
+                                      background:
+                                        CATEGORY_COLORS[
+                                          idx % CATEGORY_COLORS.length
+                                        ],
+                                    }}
+                                  />
+                                  {c.category}
+                                </td>
+                                <td className="rpt-right rpt-col-num">
+                                  {c.part_count}
+                                </td>
+                                <td className="rpt-right rpt-col-num">
+                                  {c.units}
+                                </td>
+                                <td className="rpt-right rpt-col-money">
+                                  {money(c.value)}
+                                </td>
+                              </tr>
+                            )
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -559,7 +634,6 @@ export default function Reports() {
                 <div className="rpt-empty">No data.</div>
               ) : (
                 <div className="rpt-row-2">
-                  {/* Top sellers */}
                   <div className="rpt-card">
                     <div className="rpt-card__head">
                       <h3>
@@ -577,44 +651,39 @@ export default function Reports() {
                       <table className="rpt-table">
                         <thead>
                           <tr>
-                            <th>#</th>
+                            <th className="rpt-col-rank">#</th>
                             <th>Part</th>
-                            <th className="rpt-right">Sold</th>
-                            <th className="rpt-right">Revenue</th>
+                            <th className="rpt-right rpt-col-num">Sold</th>
+                            <th className="rpt-right rpt-col-money">
+                              Revenue
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {moversData.top.map(
-                            (p: any, idx: number) => (
-                              <tr key={p.part_id}>
-                                <td>
-                                  <span className="rpt-rank">
-                                    {idx + 1}
-                                  </span>
-                                </td>
-                                <td>
-                                  <div className="rpt-cell-name">
-                                    {p.name}
-                                  </div>
-                                  <div className="rpt-cell-meta">
-                                    {p.part_number} · {p.category}
-                                  </div>
-                                </td>
-                                <td className="rpt-right">
-                                  <strong>{p.units_sold}</strong>
-                                </td>
-                                <td className="rpt-right">
-                                  {money(p.revenue)}
-                                </td>
-                              </tr>
-                            )
-                          )}
+                          {moversData.top.map((p: any, idx: number) => (
+                            <tr key={p.part_id}>
+                              <td className="rpt-col-rank">
+                                <span className="rpt-rank">{idx + 1}</span>
+                              </td>
+                              <td>
+                                <div className="rpt-cell-name">{p.name}</div>
+                                <div className="rpt-cell-meta">
+                                  {p.part_number} · {p.category}
+                                </div>
+                              </td>
+                              <td className="rpt-right rpt-col-num">
+                                <strong>{p.units_sold}</strong>
+                              </td>
+                              <td className="rpt-right rpt-col-money">
+                                {money(p.revenue)}
+                              </td>
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     )}
                   </div>
 
-                  {/* Slow movers */}
                   <div className="rpt-card">
                     <div className="rpt-card__head">
                       <h3>
@@ -635,25 +704,25 @@ export default function Reports() {
                         <thead>
                           <tr>
                             <th>Part</th>
-                            <th className="rpt-right">In Stock</th>
-                            <th className="rpt-right">Sold</th>
+                            <th className="rpt-right rpt-col-num">
+                              In Stock
+                            </th>
+                            <th className="rpt-right rpt-col-num">Sold</th>
                           </tr>
                         </thead>
                         <tbody>
                           {moversData.slow.map((p: any) => (
                             <tr key={p.part_id}>
                               <td>
-                                <div className="rpt-cell-name">
-                                  {p.name}
-                                </div>
+                                <div className="rpt-cell-name">{p.name}</div>
                                 <div className="rpt-cell-meta">
                                   {p.part_number} · {p.category}
                                 </div>
                               </td>
-                              <td className="rpt-right">
+                              <td className="rpt-right rpt-col-num">
                                 {p.current_stock}
                               </td>
-                              <td className="rpt-right">
+                              <td className="rpt-right rpt-col-num">
                                 <span
                                   className={
                                     p.units_sold === 0
@@ -699,7 +768,9 @@ export default function Reports() {
                 <button
                   type="button"
                   className="rpt-export"
-                  onClick={() => exportCSV("reorder-priority", reorderData)}
+                  onClick={() =>
+                    exportCSV("reorder-priority", reorderData)
+                  }
                 >
                   <Download size={14} />
                   Export CSV
@@ -717,18 +788,20 @@ export default function Reports() {
                   <table className="rpt-table">
                     <thead>
                       <tr>
-                        <th>Urgency</th>
+                        <th className="rpt-col-urgency">Urgency</th>
                         <th>Part</th>
-                        <th className="rpt-right">In Stock</th>
-                        <th className="rpt-right">Min</th>
-                        <th className="rpt-right">Deficit</th>
-                        <th className="rpt-right">Restock Cost</th>
+                        <th className="rpt-right rpt-col-num">In Stock</th>
+                        <th className="rpt-right rpt-col-num">Min</th>
+                        <th className="rpt-right rpt-col-num">Deficit</th>
+                        <th className="rpt-right rpt-col-money">
+                          Restock Cost
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {reorderData.map((r: any) => (
                         <tr key={r.part_id}>
-                          <td>
+                          <td className="rpt-col-urgency">
                             <span
                               className={`rpt-urgency rpt-urgency--${r.urgency}`}
                             >
@@ -741,16 +814,18 @@ export default function Reports() {
                               {r.part_number} · {r.category}
                             </div>
                           </td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-num">
                             <strong>{r.quantity}</strong>
                           </td>
-                          <td className="rpt-right">{r.reorder_level}</td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-num">
+                            {r.reorder_level}
+                          </td>
+                          <td className="rpt-right rpt-col-num">
                             <span className="rpt-tag rpt-tag--warn">
                               {r.deficit}
                             </span>
                           </td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-money">
                             {money(r.restock_cost)}
                           </td>
                         </tr>
@@ -797,17 +872,21 @@ export default function Reports() {
                   <table className="rpt-table">
                     <thead>
                       <tr>
-                        <th>Status</th>
+                        <th className="rpt-col-urgency">Status</th>
                         <th>Part</th>
-                        <th className="rpt-right">In Stock</th>
-                        <th className="rpt-right">Daily Sales</th>
-                        <th className="rpt-right">Days Until Stockout</th>
+                        <th className="rpt-right rpt-col-num">In Stock</th>
+                        <th className="rpt-right rpt-col-num">
+                          Daily Sales
+                        </th>
+                        <th className="rpt-right rpt-col-days">
+                          Days Until Stockout
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {forecastData.map((f: any) => (
                         <tr key={f.part_id}>
-                          <td>
+                          <td className="rpt-col-urgency">
                             <span
                               className={`rpt-urgency rpt-urgency--${f.stockout_status}`}
                             >
@@ -820,11 +899,13 @@ export default function Reports() {
                               {f.part_number} · {f.category}
                             </div>
                           </td>
-                          <td className="rpt-right">{f.current_stock}</td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-num">
+                            {f.current_stock}
+                          </td>
+                          <td className="rpt-right rpt-col-num">
                             {f.avg_daily_sales}/day
                           </td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-days">
                             <strong>
                               {f.days_until_stockout !== null
                                 ? `${f.days_until_stockout} day(s)`
@@ -850,7 +931,9 @@ export default function Reports() {
                 <button
                   type="button"
                   className="rpt-export"
-                  onClick={() => exportCSV("cashier-performance", cashierData)}
+                  onClick={() =>
+                    exportCSV("cashier-performance", cashierData)
+                  }
                 >
                   <Download size={14} />
                   Export CSV
@@ -867,11 +950,17 @@ export default function Reports() {
                     <thead>
                       <tr>
                         <th>Cashier</th>
-                        <th>Role</th>
-                        <th className="rpt-right">Sales</th>
-                        <th className="rpt-right">Total Revenue</th>
-                        <th className="rpt-right">Avg Transaction</th>
-                        <th className="rpt-right">Last Sale</th>
+                        <th className="rpt-col-role">Role</th>
+                        <th className="rpt-right rpt-col-num">Sales</th>
+                        <th className="rpt-right rpt-col-money">
+                          Total Revenue
+                        </th>
+                        <th className="rpt-right rpt-col-money">
+                          Avg Transaction
+                        </th>
+                        <th className="rpt-right rpt-col-date">
+                          Last Sale
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -880,7 +969,7 @@ export default function Reports() {
                           <td>
                             <div className="rpt-cell-name">{c.name}</div>
                           </td>
-                          <td>
+                          <td className="rpt-col-role">
                             <span
                               className={`rpt-tag rpt-tag--${
                                 c.role === "admin" ? "admin" : "manager"
@@ -889,14 +978,16 @@ export default function Reports() {
                               {c.role}
                             </span>
                           </td>
-                          <td className="rpt-right">{c.total_sales}</td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-num">
+                            {c.total_sales}
+                          </td>
+                          <td className="rpt-right rpt-col-money">
                             <strong>{money(c.total_revenue)}</strong>
                           </td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-money">
                             {money(c.avg_transaction)}
                           </td>
-                          <td className="rpt-right">
+                          <td className="rpt-right rpt-col-date">
                             {c.last_sale ? shortDate(c.last_sale) : "—"}
                           </td>
                         </tr>
