@@ -25,8 +25,8 @@ export const create = async (data: CreateSaleInput): Promise<number> => {
       data.quantity,
       data.total_price,
       data.payment_type,
-      data.receipt_no
-    ]
+      data.receipt_no,
+    ],
   );
 
   return (result as any).insertId;
@@ -48,11 +48,13 @@ export interface CreateSalePayload {
 }
 
 export const createSaleWithItems = async (
-  payload: CreateSalePayload
+  payload: CreateSalePayload,
 ): Promise<{ sale_ids: number[]; total: number }> => {
   const connection = await pool.getConnection();
 
   try {
+    // Ensure Manila time on this connection too
+    await connection.query("SET time_zone = '+08:00'");
     await connection.beginTransaction();
 
     const saleIds: number[] = [];
@@ -61,7 +63,7 @@ export const createSaleWithItems = async (
     for (const item of payload.items) {
       const [partRows] = await connection.execute(
         "SELECT name, quantity FROM parts WHERE part_id = ? FOR UPDATE",
-        [item.part_id]
+        [item.part_id],
       );
 
       const parts = partRows as any[];
@@ -74,7 +76,7 @@ export const createSaleWithItems = async (
       if (part.quantity < item.quantity) {
         throw {
           status: 400,
-          message: `Insufficient stock for "${part.name}". Only ${part.quantity} available.`
+          message: `Insufficient stock for "${part.name}". Only ${part.quantity} available.`,
         };
       }
 
@@ -91,15 +93,15 @@ export const createSaleWithItems = async (
           item.quantity,
           lineTotal,
           payload.payment_type,
-          payload.receipt_no
-        ]
+          payload.receipt_no,
+        ],
       );
 
       saleIds.push((result as any).insertId);
 
       await connection.execute(
         "UPDATE parts SET quantity = quantity - ? WHERE part_id = ?",
-        [item.quantity, item.part_id]
+        [item.quantity, item.part_id],
       );
     }
 
@@ -123,7 +125,7 @@ export const findAll = async (): Promise<SaleWithDetails[]> => {
      FROM sales s
      JOIN parts p ON s.part_id = p.part_id
      JOIN users u ON s.user_id = u.user_id
-     ORDER BY s.sale_date DESC`
+     ORDER BY s.sale_date DESC`,
   );
   return rows as SaleWithDetails[];
 };
@@ -133,7 +135,7 @@ export const findAll = async (): Promise<SaleWithDetails[]> => {
 // ============================================================
 
 export const findById = async (
-  saleId: number
+  saleId: number,
 ): Promise<SaleWithDetails | null> => {
   const [rows] = await pool.execute(
     `SELECT s.*, p.name AS part_name, u.name AS user_name
@@ -142,7 +144,7 @@ export const findById = async (
      JOIN users u ON s.user_id = u.user_id
      WHERE s.sale_id = ?
      LIMIT 1`,
-    [saleId]
+    [saleId],
   );
 
   const sales = rows as SaleWithDetails[];
@@ -161,7 +163,7 @@ export const findRecent = async (limit = 10): Promise<SaleWithDetails[]> => {
      JOIN users u ON s.user_id = u.user_id
      ORDER BY s.sale_date DESC
      LIMIT ?`,
-    [limit]
+    [limit],
   );
   return rows as SaleWithDetails[];
 };
@@ -177,21 +179,23 @@ export const getTodayStats = async (): Promise<{
   const [rows] = await pool.execute(
     `SELECT
        COALESCE(SUM(total_price), 0) AS total_sales,
-       COUNT(*) AS transaction_count
+       COUNT(DISTINCT receipt_no) AS transaction_count
      FROM sales
-     WHERE DATE(sale_date) = CURDATE()`
+     WHERE DATE(sale_date) = CURDATE()`,
   );
 
   const row = (rows as any[])[0];
 
   return {
     total_sales: Number(row.total_sales),
-    transaction_count: Number(row.transaction_count)
+    transaction_count: Number(row.transaction_count),
   };
 };
 
 export const countSales = async (): Promise<number> => {
-  const [rows] = await pool.execute("SELECT COUNT(*) AS total FROM sales");
+  const [rows] = await pool.execute(
+    "SELECT COUNT(DISTINCT receipt_no) AS total FROM sales",
+  );
   return Number((rows as any[])[0].total);
 };
 
@@ -206,9 +210,7 @@ export interface TopSellingRow {
   revenue: number;
 }
 
-export const getTopSelling = async (
-  limit = 5
-): Promise<TopSellingRow[]> => {
+export const getTopSelling = async (limit = 5): Promise<TopSellingRow[]> => {
   const [rows] = await pool.execute(
     `SELECT
        p.part_id,
@@ -220,57 +222,63 @@ export const getTopSelling = async (
      GROUP BY p.part_id, p.name
      ORDER BY sold DESC
      LIMIT ?`,
-    [limit]
+    [limit],
   );
 
   return (rows as any[]).map((r) => ({
     part_id: r.part_id,
     name: r.name,
     sold: Number(r.sold),
-    revenue: Number(r.revenue)
+    revenue: Number(r.revenue),
   }));
 };
 
 // ============================================================
-// SALES TREND (last 7 days)
+// SALES TREND (last 7 days — Manila timezone)
+// ============================================================
+// FIXED: Uses MySQL's own date functions so the day boundaries
+// match Manila calendar. No JS Date conversion which caused
+// the "1-day late" bug.
 // ============================================================
 
 export const getSalesTrend = async (): Promise<
   Array<{ day: string; sales: number }>
 > => {
-  const [rows] = await pool.execute(
+  // Group actual sales by Manila date string
+  const [salesRows] = await pool.execute(
     `SELECT
-       DATE(sale_date) AS day,
+       DATE_FORMAT(sale_date, '%Y-%m-%d') AS day_iso,
        SUM(total_price) AS sales
      FROM sales
      WHERE sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-     GROUP BY DATE(sale_date)
-     ORDER BY day ASC`
+     GROUP BY DATE(sale_date)`,
   );
 
-  const raw = rows as any[];
+  const sales = salesRows as any[];
 
-  const map = new Map<string, number>();
-  for (const row of raw) {
-    const d = new Date(row.day);
-    const key = d.toISOString().split("T")[0];
-    map.set(key, Number(row.sales));
+  const salesMap = new Map<string, number>();
+  for (const s of sales) {
+    salesMap.set(s.day_iso, Number(s.sales));
   }
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const out: Array<{ day: string; sales: number }> = [];
+  // Generate the last 7 days in Manila time via MySQL
+  const [daysRows] = await pool.execute(
+    `SELECT
+       DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL n DAY), '%Y-%m-%d') AS day_iso,
+       DAYNAME(DATE_SUB(CURDATE(), INTERVAL n DAY)) AS day_name
+     FROM (
+       SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3
+       UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+     ) AS numbers
+     ORDER BY n DESC`,
+  );
 
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    const key = date.toISOString().split("T")[0];
-    out.push({
-      day: dayNames[date.getDay()],
-      sales: map.get(key) ?? 0
-    });
-  }
+  const days = daysRows as any[];
 
-  return out;
+  return days.map((d) => ({
+    day: String(d.day_name).slice(0, 3),
+    sales: salesMap.get(d.day_iso) ?? 0,
+  }));
 };
 
 // ============================================================
@@ -281,12 +289,10 @@ export const generateReceiptNo = async (): Promise<string> => {
   const date = new Date();
   const datePart = date.toISOString().split("T")[0].replace(/-/g, "");
 
-  // Count DISTINCT receipt numbers for today
-  // (because multi-item sales create multiple rows with the same receipt_no)
   const [rows] = await pool.execute(
     `SELECT COUNT(DISTINCT receipt_no) AS total
      FROM sales
-     WHERE DATE(sale_date) = CURDATE()`
+     WHERE DATE(sale_date) = CURDATE()`,
   );
 
   const count = Number((rows as any[])[0].total) + 1;

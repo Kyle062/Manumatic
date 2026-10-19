@@ -146,10 +146,12 @@ export default function Reports() {
   const shortMoney = (n: number) =>
     "₱" + Number(n).toLocaleString("en-PH", { maximumFractionDigits: 0 });
 
+  // ⚠️ FIXED: Force Asia/Manila timezone so dates match local calendar
   const shortDate = (iso: string) => {
     if (!iso) return "—";
     const d = new Date(iso);
     return d.toLocaleDateString("en-PH", {
+      timeZone: "Asia/Manila",
       month: "short",
       day: "numeric",
     });
@@ -173,7 +175,7 @@ export default function Reports() {
             const str = String(val).replace(/"/g, '""');
             return `"${str}"`;
           })
-          .join(",")
+          .join(","),
       ),
     ].join("\n");
 
@@ -247,8 +249,8 @@ export default function Reports() {
                       {r === "today"
                         ? "Today"
                         : r === "week"
-                        ? "Last 7 Days"
-                        : "Last 30 Days"}
+                          ? "Last 7 Days"
+                          : "Last 30 Days"}
                     </button>
                   ))}
                 </div>
@@ -321,8 +323,8 @@ export default function Reports() {
                         {range === "today"
                           ? "Today"
                           : range === "week"
-                          ? "Last 7 days"
-                          : "Last 30 days"}
+                            ? "Last 7 days"
+                            : "Last 30 days"}
                       </span>
                     </div>
 
@@ -376,9 +378,7 @@ export default function Reports() {
                         </ResponsiveContainer>
                       </div>
                     ) : (
-                      <div className="rpt-empty">
-                        No sales in this period.
-                      </div>
+                      <div className="rpt-empty">No sales in this period.</div>
                     )}
                   </div>
                 </>
@@ -494,7 +494,7 @@ export default function Reports() {
                                 </span>
                               </div>
                             );
-                          }
+                          },
                         )}
                       </div>
 
@@ -525,7 +525,7 @@ export default function Reports() {
                                         ]
                                       }
                                     />
-                                  )
+                                  ),
                                 )}
                               </Pie>
                               <Tooltip
@@ -533,12 +533,9 @@ export default function Reports() {
                                   fontSize: 12,
                                   borderRadius: 8,
                                   border: "1px solid #e5e7eb",
-                                  boxShadow:
-                                    "0 4px 12px rgba(0,0,0,0.06)",
+                                  boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
                                 }}
-                                formatter={(value: any) =>
-                                  money(Number(value))
-                                }
+                                formatter={(value: any) => money(Number(value))}
                               />
                             </PieChart>
                           </ResponsiveContainer>
@@ -597,7 +594,7 @@ export default function Reports() {
                                   {money(c.value)}
                                 </td>
                               </tr>
-                            )
+                            ),
                           )}
                         </tbody>
                       </table>
@@ -619,8 +616,7 @@ export default function Reports() {
                   type="button"
                   className="rpt-export"
                   onClick={() =>
-                    moversData?.top &&
-                    exportCSV("top-sellers", moversData.top)
+                    moversData?.top && exportCSV("top-sellers", moversData.top)
                   }
                 >
                   <Download size={14} />
@@ -637,10 +633,7 @@ export default function Reports() {
                   <div className="rpt-card">
                     <div className="rpt-card__head">
                       <h3>
-                        <ArrowUpRight
-                          size={16}
-                          style={{ color: "#0f6b5c" }}
-                        />
+                        <ArrowUpRight size={16} style={{ color: "#0f6b5c" }} />
                         Best Sellers
                       </h3>
                       <span className="rpt-card__hint">By units sold</span>
@@ -654,9 +647,7 @@ export default function Reports() {
                             <th className="rpt-col-rank">#</th>
                             <th>Part</th>
                             <th className="rpt-right rpt-col-num">Sold</th>
-                            <th className="rpt-right rpt-col-money">
-                              Revenue
-                            </th>
+                            <th className="rpt-right rpt-col-money">Revenue</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -704,9 +695,7 @@ export default function Reports() {
                         <thead>
                           <tr>
                             <th>Part</th>
-                            <th className="rpt-right rpt-col-num">
-                              In Stock
-                            </th>
+                            <th className="rpt-right rpt-col-num">In Stock</th>
                             <th className="rpt-right rpt-col-num">Sold</th>
                           </tr>
                         </thead>
@@ -753,14 +742,11 @@ export default function Reports() {
                 <div className="rpt-summary-text">
                   <AlertTriangle size={14} />
                   <span>
-                    {reorderData.length} part(s) need reordering · Total
-                    restock cost:{" "}
+                    {reorderData.length} part(s) need reordering · Total restock
+                    cost:{" "}
                     <strong>
                       {money(
-                        reorderData.reduce(
-                          (s, r) => s + r.restock_cost,
-                          0
-                        )
+                        reorderData.reduce((s, r) => s + r.restock_cost, 0),
                       )}
                     </strong>
                   </span>
@@ -768,9 +754,7 @@ export default function Reports() {
                 <button
                   type="button"
                   className="rpt-export"
-                  onClick={() =>
-                    exportCSV("reorder-priority", reorderData)
-                  }
+                  onClick={() => exportCSV("reorder-priority", reorderData)}
                 >
                   <Download size={14} />
                   Export CSV
@@ -847,8 +831,8 @@ export default function Reports() {
                   <Clock size={14} />
                   <span>
                     Based on 30-day sales velocity ·{" "}
-                    <strong>{forecastData.length}</strong> part(s) may run
-                    out soon
+                    <strong>{forecastData.length}</strong> part(s) may run out
+                    soon
                   </span>
                 </div>
                 <button
@@ -875,9 +859,7 @@ export default function Reports() {
                         <th className="rpt-col-urgency">Status</th>
                         <th>Part</th>
                         <th className="rpt-right rpt-col-num">In Stock</th>
-                        <th className="rpt-right rpt-col-num">
-                          Daily Sales
-                        </th>
+                        <th className="rpt-right rpt-col-num">Daily Sales</th>
                         <th className="rpt-right rpt-col-days">
                           Days Until Stockout
                         </th>
@@ -931,9 +913,7 @@ export default function Reports() {
                 <button
                   type="button"
                   className="rpt-export"
-                  onClick={() =>
-                    exportCSV("cashier-performance", cashierData)
-                  }
+                  onClick={() => exportCSV("cashier-performance", cashierData)}
                 >
                   <Download size={14} />
                   Export CSV
@@ -958,9 +938,7 @@ export default function Reports() {
                         <th className="rpt-right rpt-col-money">
                           Avg Transaction
                         </th>
-                        <th className="rpt-right rpt-col-date">
-                          Last Sale
-                        </th>
+                        <th className="rpt-right rpt-col-date">Last Sale</th>
                       </tr>
                     </thead>
                     <tbody>

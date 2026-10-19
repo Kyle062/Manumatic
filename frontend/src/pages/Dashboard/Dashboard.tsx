@@ -130,21 +130,15 @@ export default function Dashboard() {
     setError("");
 
     try {
-      const [
-        statsRes,
-        txnRes,
-        logsRes,
-        topRes,
-        trendRes,
-        lowStockRes,
-      ] = await Promise.all([
-        getDashboardStats(),
-        getDashboardTransactions(6),
-        getActivityLogs(6),
-        getTopSelling(5),
-        getSalesTrend(),
-        getLowStockParts(),
-      ]);
+      const [statsRes, txnRes, logsRes, topRes, trendRes, lowStockRes] =
+        await Promise.all([
+          getDashboardStats(),
+          getDashboardTransactions(6),
+          getActivityLogs(6),
+          getTopSelling(5),
+          getSalesTrend(),
+          getLowStockParts(),
+        ]);
 
       setStats(statsRes.data);
       setTransactions(txnRes.data);
@@ -156,7 +150,7 @@ export default function Dashboard() {
       console.error("Dashboard fetch error:", err);
       setError(
         err.response?.data?.message ||
-          "Failed to load dashboard data. Please try again."
+          "Failed to load dashboard data. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -174,8 +168,7 @@ export default function Dashboard() {
 
   const prevSlide = () =>
     setSlide((s) => (s - 1 + bannerSlides.length) % bannerSlides.length);
-  const nextSlide = () =>
-    setSlide((s) => (s + 1) % bannerSlides.length);
+  const nextSlide = () => setSlide((s) => (s + 1) % bannerSlides.length);
 
   // ---- Helpers ----
   const money = (n: number) =>
@@ -187,9 +180,15 @@ export default function Dashboard() {
 
   const shortMoney = (n: number) => "₱" + n.toLocaleString("en-PH");
 
+  // ⚠️ FIXED: Format date in Asia/Manila timezone
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
-    return d.toISOString().split("T")[0];
+    return d.toLocaleDateString("en-CA", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
   };
 
   const quickActions = [
@@ -251,9 +250,7 @@ export default function Dashboard() {
         <div className="dashboard-content">
           {error && <div className="dash-error">{error}</div>}
 
-          {/* ================================
-              WELCOME STRIP
-              ================================ */}
+          {/* WELCOME STRIP */}
           <div className="welcome-strip">
             <div className="welcome-strip__left">
               <h2 className="welcome-strip__title">

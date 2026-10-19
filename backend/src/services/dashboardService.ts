@@ -4,7 +4,7 @@ import {
   DashboardStats,
   ActivityLog,
   TopSellingPart,
-  SalesTrendPoint
+  SalesTrendPoint,
 } from "../types";
 
 // ============================================================
@@ -17,24 +17,24 @@ export const getStats = async (): Promise<DashboardStats> => {
     totalTransactions,
     lowStockItems,
     partsInCatalog,
-    unitsOnHand
+    unitsOnHand,
   ] = await Promise.all([
     saleModel.getTodayStats(),
     saleModel.countSales(),
     partModel.countLowStock(),
     partModel.countParts(),
-    partModel.sumQuantity()
+    partModel.sumQuantity(),
   ]);
 
   return {
     todaySales: {
       total_sales: todayStats.total_sales,
-      transaction_count: todayStats.transaction_count
+      transaction_count: todayStats.transaction_count,
     },
     totalTransactions,
     lowStockItems,
     partsInCatalog,
-    unitsOnHand
+    unitsOnHand,
   };
 };
 
@@ -49,6 +49,8 @@ export const getRecentTransactions = async (limit = 10) => {
 // ============================================================
 // GET ACTIVITY LOGS
 // ============================================================
+// FIXED: Force Asia/Manila timezone so times match local clock
+// ============================================================
 
 export const getActivityLogs = async (limit = 8): Promise<ActivityLog[]> => {
   const recent = await saleModel.findRecent(limit);
@@ -56,14 +58,15 @@ export const getActivityLogs = async (limit = 8): Promise<ActivityLog[]> => {
   return recent.map((sale) => {
     const date = new Date(sale.sale_date);
     const time = date.toLocaleTimeString("en-PH", {
+      timeZone: "Asia/Manila", // ← FIX: Force Manila timezone
       hour: "2-digit",
       minute: "2-digit",
-      hour12: false
+      hour12: false,
     });
 
     return {
       time,
-      text: `${sale.user_name} processed sale ${sale.receipt_no} — ${sale.part_name}`
+      text: `${sale.user_name} processed sale ${sale.receipt_no} — ${sale.part_name}`,
     };
   });
 };
@@ -73,7 +76,7 @@ export const getActivityLogs = async (limit = 8): Promise<ActivityLog[]> => {
 // ============================================================
 
 export const getTopSellingParts = async (
-  limit = 5
+  limit = 5,
 ): Promise<TopSellingPart[]> => {
   return saleModel.getTopSelling(limit);
 };

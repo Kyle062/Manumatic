@@ -9,7 +9,7 @@ import { AuthRequest } from "../types";
 export const getSalesOverview = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const range = (req.query.range as string) || "today";
@@ -20,40 +20,40 @@ export const getSalesOverview = async (
         dateFilter = "DATE(sale_date) = CURDATE()";
         break;
       case "week":
-        dateFilter =
-          "sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)";
+        dateFilter = "sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)";
         break;
       case "month":
-        dateFilter =
-          "sale_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)";
+        dateFilter = "sale_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)";
         break;
       default:
         dateFilter = "DATE(sale_date) = CURDATE()";
     }
 
     // Main stats
+    // ⚠️ COUNT(DISTINCT receipt_no) counts transactions, not rows
     const [statsRows] = await pool.execute(
       `SELECT
-         COALESCE(SUM(total_price), 0) AS total_revenue,
-         COUNT(*)                      AS transaction_count,
-         COUNT(DISTINCT part_id)       AS unique_parts_sold,
-         COALESCE(AVG(total_price), 0) AS avg_transaction
+         COALESCE(SUM(total_price), 0)     AS total_revenue,
+         COUNT(DISTINCT receipt_no)        AS transaction_count,
+         COUNT(DISTINCT part_id)           AS unique_parts_sold,
+         COALESCE(AVG(total_price), 0)     AS avg_transaction
        FROM sales
-       WHERE ${dateFilter}`
+       WHERE ${dateFilter}`,
     );
 
     const stats = (statsRows as any[])[0];
 
     // Per-day breakdown for the range
+    // ⚠️ DATE_FORMAT returns a plain string in Manila time — no JS Date conversion
     const [dailyRows] = await pool.execute(
       `SELECT
-         DATE(sale_date) AS day,
-         SUM(total_price) AS revenue,
-         COUNT(*) AS transactions
+         DATE_FORMAT(sale_date, '%Y-%m-%d') AS day,
+         SUM(total_price)                   AS revenue,
+         COUNT(DISTINCT receipt_no)         AS transactions
        FROM sales
        WHERE ${dateFilter}
        GROUP BY DATE(sale_date)
-       ORDER BY day ASC`
+       ORDER BY DATE(sale_date) ASC`,
     );
 
     res.json({
@@ -63,10 +63,11 @@ export const getSalesOverview = async (
       unique_parts_sold: Number(stats.unique_parts_sold),
       avg_transaction: Number(stats.avg_transaction),
       daily: (dailyRows as any[]).map((d) => ({
-        day: new Date(d.day).toISOString().split("T")[0],
+        // Already a plain "YYYY-MM-DD" string from MySQL — no conversion
+        day: d.day,
         revenue: Number(d.revenue),
-        transactions: Number(d.transactions)
-      }))
+        transactions: Number(d.transactions),
+      })),
     });
   } catch (error) {
     next(error);
@@ -80,21 +81,19 @@ export const getSalesOverview = async (
 export const getInventoryValuation = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    // Overall totals
     const [totalsRows] = await pool.execute(
       `SELECT
          COUNT(*)                        AS total_parts,
          COALESCE(SUM(quantity), 0)      AS total_units,
          COALESCE(SUM(quantity * price), 0) AS total_value
-       FROM parts`
+       FROM parts`,
     );
 
     const totals = (totalsRows as any[])[0];
 
-    // Per-category breakdown
     const [categoryRows] = await pool.execute(
       `SELECT
          category,
@@ -103,16 +102,15 @@ export const getInventoryValuation = async (
          COALESCE(SUM(quantity * price), 0) AS value
        FROM parts
        GROUP BY category
-       ORDER BY value DESC`
+       ORDER BY value DESC`,
     );
 
-    // Low stock value (at risk)
     const [riskRows] = await pool.execute(
       `SELECT
          COUNT(*) AS low_stock_count,
          COALESCE(SUM(quantity * price), 0) AS at_risk_value
        FROM parts
-       WHERE quantity <= reorder_level`
+       WHERE quantity <= reorder_level`,
     );
 
     const risk = (riskRows as any[])[0];
@@ -127,8 +125,8 @@ export const getInventoryValuation = async (
         category: c.category,
         part_count: Number(c.part_count),
         units: Number(c.units),
-        value: Number(c.value)
-      }))
+        value: Number(c.value),
+      })),
     });
   } catch (error) {
     next(error);
@@ -142,12 +140,11 @@ export const getInventoryValuation = async (
 export const getTopMovers = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const limit = Number(req.query.limit) || 5;
 
-    // Best sellers
     const [topRows] = await pool.execute(
       `SELECT
          p.part_id,
@@ -161,10 +158,9 @@ export const getTopMovers = async (
        GROUP BY p.part_id, p.part_number, p.name, p.category
        ORDER BY units_sold DESC
        LIMIT ?`,
-      [limit]
+      [limit],
     );
 
-    // Slow movers (parts with least or no sales)
     const [slowRows] = await pool.execute(
       `SELECT
          p.part_id,
@@ -178,7 +174,7 @@ export const getTopMovers = async (
        GROUP BY p.part_id, p.part_number, p.name, p.category, p.quantity
        ORDER BY units_sold ASC, current_stock DESC
        LIMIT ?`,
-      [limit]
+      [limit],
     );
 
     res.json({
@@ -188,7 +184,7 @@ export const getTopMovers = async (
         name: r.name,
         category: r.category,
         units_sold: Number(r.units_sold),
-        revenue: Number(r.revenue)
+        revenue: Number(r.revenue),
       })),
       slow: (slowRows as any[]).map((r) => ({
         part_id: r.part_id,
@@ -196,8 +192,8 @@ export const getTopMovers = async (
         name: r.name,
         category: r.category,
         current_stock: Number(r.current_stock),
-        units_sold: Number(r.units_sold)
-      }))
+        units_sold: Number(r.units_sold),
+      })),
     });
   } catch (error) {
     next(error);
@@ -211,10 +207,9 @@ export const getTopMovers = async (
 export const getReorderPriority = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    // Score: parts below reorder level, ranked by urgency
     const [rows] = await pool.execute(
       `SELECT
          p.part_id,
@@ -234,7 +229,7 @@ export const getReorderPriority = async (
                 p.quantity, p.reorder_level, p.price
        ORDER BY
          (p.reorder_level - p.quantity) DESC,
-         recent_sales DESC`
+         recent_sales DESC`,
     );
 
     res.json(
@@ -253,9 +248,9 @@ export const getReorderPriority = async (
           Number(r.quantity) === 0
             ? "critical"
             : Number(r.deficit) > 5
-            ? "high"
-            : "medium"
-      }))
+              ? "high"
+              : "medium",
+      })),
     );
   } catch (error) {
     next(error);
@@ -269,10 +264,9 @@ export const getReorderPriority = async (
 export const getLowStockForecast = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
-    // Calculate sales velocity over last 30 days
     const [rows] = await pool.execute(
       `SELECT
          p.part_id,
@@ -287,7 +281,7 @@ export const getLowStockForecast = async (
        FROM parts p
        LEFT JOIN sales s ON s.part_id = p.part_id
        GROUP BY p.part_id, p.part_number, p.name, p.category,
-                p.quantity, p.reorder_level`
+                p.quantity, p.reorder_level`,
     );
 
     const forecast = (rows as any[])
@@ -312,15 +306,17 @@ export const getLowStockForecast = async (
             daysLeft === null
               ? "no_sales"
               : daysLeft <= 3
-              ? "critical"
-              : daysLeft <= 7
-              ? "warning"
-              : daysLeft <= 14
-              ? "watch"
-              : "safe"
+                ? "critical"
+                : daysLeft <= 7
+                  ? "warning"
+                  : daysLeft <= 14
+                    ? "watch"
+                    : "safe",
         };
       })
-      .filter((f) => f.stockout_status !== "safe" && f.stockout_status !== "no_sales")
+      .filter(
+        (f) => f.stockout_status !== "safe" && f.stockout_status !== "no_sales",
+      )
       .sort((a, b) => {
         if (a.days_until_stockout === null) return 1;
         if (b.days_until_stockout === null) return -1;
@@ -340,7 +336,7 @@ export const getLowStockForecast = async (
 export const getCashierPerformance = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const [rows] = await pool.execute(
@@ -348,14 +344,14 @@ export const getCashierPerformance = async (
          u.user_id,
          u.name,
          u.role,
-         COUNT(s.sale_id) AS total_sales,
+         COUNT(DISTINCT s.receipt_no)    AS total_sales,
          COALESCE(SUM(s.total_price), 0) AS total_revenue,
          COALESCE(AVG(s.total_price), 0) AS avg_transaction,
-         MAX(s.sale_date) AS last_sale
+         MAX(s.sale_date)                AS last_sale
        FROM users u
        LEFT JOIN sales s ON s.user_id = u.user_id
        GROUP BY u.user_id, u.name, u.role
-       ORDER BY total_revenue DESC`
+       ORDER BY total_revenue DESC`,
     );
 
     res.json(
@@ -366,8 +362,8 @@ export const getCashierPerformance = async (
         total_sales: Number(r.total_sales),
         total_revenue: Number(r.total_revenue),
         avg_transaction: Number(r.avg_transaction),
-        last_sale: r.last_sale
-      }))
+        last_sale: r.last_sale,
+      })),
     );
   } catch (error) {
     next(error);

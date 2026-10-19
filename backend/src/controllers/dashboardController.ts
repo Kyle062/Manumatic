@@ -9,7 +9,7 @@ import { AuthRequest } from "../types";
 export const getStats = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const stats = await dashboardService.getStats();
@@ -26,7 +26,7 @@ export const getStats = async (
 export const getTransactions = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const transactions = await dashboardService.getRecentTransactions(10);
@@ -43,7 +43,7 @@ export const getTransactions = async (
 export const getLogs = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const logs = await dashboardService.getActivityLogs(8);
@@ -60,7 +60,7 @@ export const getLogs = async (
 export const getTopSelling = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const top = await dashboardService.getTopSellingParts(5);
@@ -77,7 +77,7 @@ export const getTopSelling = async (
 export const getSalesTrend = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const trend = await dashboardService.getSalesTrend();
@@ -94,7 +94,7 @@ export const getSalesTrend = async (
 export const getLowStock = async (
   _req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const parts = await dashboardService.getLowStockParts();
