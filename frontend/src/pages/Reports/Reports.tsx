@@ -14,6 +14,8 @@ import {
   Activity,
   ArrowUpRight,
   ArrowDownRight,
+  ShoppingCart,
+  X,
 } from "lucide-react";
 import {
   BarChart,
@@ -56,7 +58,6 @@ interface ToastState {
   type: ToastType;
 }
 
-// Pie chart colors — distinct and professional
 const CATEGORY_COLORS = [
   "#0f6b5c", // teal
   "#1d4ed8", // blue
@@ -88,9 +89,14 @@ export default function Reports() {
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [cashierData, setCashierData] = useState<any[]>([]);
 
+  // ✅ NEW: State to track which day's bar was clicked
+  const [selectedDay, setSelectedDay] = useState<any>(null);
+
   // ---- Load data on tab change ----
   useEffect(() => {
     loadTab();
+    // Reset selected day when range changes
+    setSelectedDay(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, range]);
 
@@ -146,7 +152,6 @@ export default function Reports() {
   const shortMoney = (n: number) =>
     "₱" + Number(n).toLocaleString("en-PH", { maximumFractionDigits: 0 });
 
-  // ⚠️ FIXED: Force Asia/Manila timezone so dates match local calendar
   const shortDate = (iso: string) => {
     if (!iso) return "—";
     const d = new Date(iso);
@@ -368,11 +373,16 @@ export default function Reports() {
                               labelFormatter={(value) =>
                                 shortDate(String(value))
                               }
+                              cursor={{ fill: "rgba(15, 107, 92, 0.05)" }}
                             />
+
+                            {/* ✅ ADDED onClick HANDLER HERE */}
                             <Bar
                               dataKey="revenue"
                               fill="#0f6b5c"
                               radius={[6, 6, 0, 0]}
+                              onClick={(data) => setSelectedDay(data)}
+                              style={{ cursor: "pointer" }}
                             />
                           </BarChart>
                         </ResponsiveContainer>
@@ -380,6 +390,116 @@ export default function Reports() {
                     ) : (
                       <div className="rpt-empty">No sales in this period.</div>
                     )}
+                  </div>
+
+                  {/* ✅ UPDATED PANEL: Shows Total Range OR Specific Day depending on selection */}
+                  <div className="rpt-card">
+                    <div className="rpt-card__head">
+                      <h3>
+                        <ShoppingCart size={16} style={{ color: "#0f6b5c" }} />
+                        {selectedDay
+                          ? `Parts Sold on ${shortDate(selectedDay.day)}`
+                          : "All Parts Sold"}
+                      </h3>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                        }}
+                      >
+                        <span className="rpt-card__hint">
+                          {selectedDay
+                            ? `Revenue: ${money(selectedDay.revenue)}`
+                            : range === "today"
+                              ? "Sold today"
+                              : range === "week"
+                                ? "Sold in last 7 days"
+                                : "Sold in last 30 days"}
+                        </span>
+                        {/* Reset button to go back to viewing the whole range */}
+                        {selectedDay && (
+                          <button
+                            className="rpt-export"
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "10px",
+                              height: "auto",
+                            }}
+                            onClick={() => setSelectedDay(null)}
+                          >
+                            <X size={12} /> Clear filter
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Determine which data to show based on whether a day is selected */}
+                    {(() => {
+                      const displayData = selectedDay
+                        ? selectedDay.parts_sold
+                        : salesData.daily?.flatMap(
+                            (d: any) => d.parts_sold || [],
+                          ) || [];
+
+                      // Aggregate the data if viewing the whole range (to sum up quantities across days)
+                      const aggregatedData = selectedDay
+                        ? displayData
+                        : Object.values(
+                            displayData.reduce((acc: any, item: any) => {
+                              if (!acc[item.part_id]) {
+                                acc[item.part_id] = { ...item };
+                              } else {
+                                acc[item.part_id].quantity_sold +=
+                                  item.quantity_sold;
+                                acc[item.part_id].revenue += item.revenue;
+                              }
+                              return acc;
+                            }, {}),
+                          );
+
+                      if (!aggregatedData || aggregatedData.length === 0) {
+                        return (
+                          <div className="rpt-empty">
+                            No parts sold in this period.
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <table className="rpt-table">
+                          <thead>
+                            <tr>
+                              <th>Part</th>
+                              <th className="rpt-right rpt-col-num">
+                                Qty Sold
+                              </th>
+                              <th className="rpt-right rpt-col-money">
+                                Revenue
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {aggregatedData.map((p: any) => (
+                              <tr key={p.part_id}>
+                                <td>
+                                  <div className="rpt-cell-name">{p.name}</div>
+                                  <div className="rpt-cell-meta">
+                                    {p.part_number}
+                                  </div>
+                                </td>
+                                <td className="rpt-right rpt-col-num">
+                                  <strong>{p.quantity_sold}</strong>
+                                </td>
+                                <td className="rpt-right rpt-col-money">
+                                  {money(p.revenue)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()}
                   </div>
                 </>
               )}
