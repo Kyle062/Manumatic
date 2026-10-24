@@ -89,7 +89,7 @@ export default function Reports() {
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [cashierData, setCashierData] = useState<any[]>([]);
 
-  // ✅ NEW: State to track which day's bar was clicked
+  // ✅ State to track which day's bar was clicked
   const [selectedDay, setSelectedDay] = useState<any>(null);
 
   // ---- Load data on tab change ----
@@ -334,53 +334,60 @@ export default function Reports() {
                     </div>
 
                     {salesData.daily && salesData.daily.length > 0 ? (
-                      <div style={{ width: "100%", height: 280 }}>
+                      <div style={{ width: "100%", height: 320 }}>
                         <ResponsiveContainer>
                           <BarChart
                             data={salesData.daily}
                             margin={{
                               top: 10,
-                              right: 20,
+                              right: 10,
                               bottom: 0,
                               left: -10,
                             }}
                           >
                             <CartesianGrid
                               strokeDasharray="3 3"
-                              stroke="#eef0f3"
+                              stroke="#f3f4f6"
                               vertical={false}
                             />
                             <XAxis
                               dataKey="day"
                               tickFormatter={shortDate}
-                              tick={{ fontSize: 11, fill: "#9ca3af" }}
-                              axisLine={false}
+                              tick={{ fontSize: 11, fill: "#6b7280" }}
+                              axisLine={{ stroke: "#e5e7eb" }}
                               tickLine={false}
+                              dy={10}
                             />
                             <YAxis
                               tickFormatter={shortMoney}
-                              tick={{ fontSize: 11, fill: "#9ca3af" }}
+                              tick={{ fontSize: 11, fill: "#6b7280" }}
                               axisLine={false}
                               tickLine={false}
                             />
                             <Tooltip
                               contentStyle={{
-                                fontSize: 12,
+                                fontSize: 13,
                                 borderRadius: 8,
                                 border: "1px solid #e5e7eb",
+                                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+                                padding: "10px 14px",
                               }}
-                              formatter={(value) => money(Number(value))}
+                              formatter={(value) => [
+                                money(Number(value)),
+                                "Revenue",
+                              ]}
                               labelFormatter={(value) =>
                                 shortDate(String(value))
                               }
-                              cursor={{ fill: "rgba(15, 107, 92, 0.05)" }}
+                              cursor={{ fill: "rgba(15, 107, 92, 0.08)" }}
                             />
-
-                            {/* ✅ ADDED onClick HANDLER HERE */}
                             <Bar
                               dataKey="revenue"
                               fill="#0f6b5c"
                               radius={[6, 6, 0, 0]}
+                              // ✅ FIX: Limit max width and set fixed base width
+                              maxBarSize={60}
+                              minPointSize={4}
                               onClick={(data) => setSelectedDay(data)}
                               style={{ cursor: "pointer" }}
                             />
