@@ -381,15 +381,17 @@ export default function Reports() {
                               }
                               cursor={{ fill: "rgba(15, 107, 92, 0.08)" }}
                             />
+
+                            {/* ✅ Bar Width and Outline Fixes applied here */}
                             <Bar
                               dataKey="revenue"
                               fill="#0f6b5c"
                               radius={[6, 6, 0, 0]}
-                              // ✅ FIX: Limit max width and set fixed base width
-                              maxBarSize={60}
+                              barSize={40}
+                              focusable={false}
                               minPointSize={4}
                               onClick={(data) => setSelectedDay(data)}
-                              style={{ cursor: "pointer" }}
+                              style={{ cursor: "pointer", outline: "none" }}
                             />
                           </BarChart>
                         </ResponsiveContainer>
