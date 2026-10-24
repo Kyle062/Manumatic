@@ -42,6 +42,13 @@ import "./Inventory.css";
 // ============================================================
 
 type Tab = "catalog" | "adjustments" | "availability" | "settings";
+
+// Split sort types for individual columns
+type NameSort = "name-asc" | "name-desc";
+type PriceSort = "price-asc" | "price-desc" | "none";
+type StockSort = "qty-asc" | "qty-desc" | "low-first" | "none";
+
+// Combined type for Availability tab (keeps the old behavior)
 type SortOption =
   | "name-asc"
   | "name-desc"
@@ -50,6 +57,7 @@ type SortOption =
   | "qty-asc"
   | "qty-desc"
   | "low-first";
+
 type StockFilter = "all" | "in" | "low" | "out";
 
 interface ToastState {
@@ -98,7 +106,11 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [catalogSort, setCatalogSort] = useState<SortOption>("name-asc"); // <-- Added Sort State
+
+  // ✅ Split sort states
+  const [nameSort, setNameSort] = useState<NameSort>("name-asc");
+  const [priceSort, setPriceSort] = useState<PriceSort>("none");
+  const [stockSort, setStockSort] = useState<StockSort>("none");
 
   // ---- Part Modal ----
   const [showModal, setShowModal] = useState(false);
@@ -243,6 +255,21 @@ export default function Inventory() {
     }
   }, [adjPart, parts, adjMode]);
 
+  // Auto-calculate selling price in the Add/Edit form
+  useEffect(() => {
+    const cost = parseFloat(form.cost_price) || 0;
+    const markup = parseFloat(form.markup_percent) || 0;
+    const calculatedPrice = cost * (1 + markup / 100);
+
+    // Only update if there is a change to prevent infinite render loops
+    if (
+      form.price !== calculatedPrice.toString() &&
+      (cost > 0 || form.price === "")
+    ) {
+      setForm((prev) => ({ ...prev, price: calculatedPrice.toString() }));
+    }
+  }, [form.cost_price, form.markup_percent]);
+
   // ============================================================
   // FETCHERS
   // ============================================================
@@ -274,6 +301,30 @@ export default function Inventory() {
 
   const showToast = (message: string, type: ToastType = "info") => {
     setToast({ message, type });
+  };
+
+  // ============================================================
+  // SORTING LOGIC
+  // ============================================================
+
+  // ✅ Exclusive Sorting Logic
+  const handleSortChange = (
+    type: "name" | "price" | "stock",
+    value: string,
+  ) => {
+    if (type === "name") {
+      setNameSort(value as NameSort);
+      setPriceSort("none");
+      setStockSort("none");
+    } else if (type === "price") {
+      setPriceSort(value as PriceSort);
+      setNameSort("name-asc"); // Reset name to default
+      setStockSort("none");
+    } else if (type === "stock") {
+      setStockSort(value as StockSort);
+      setNameSort("name-asc"); // Reset name to default
+      setPriceSort("none");
+    }
   };
 
   // ============================================================
@@ -752,7 +803,7 @@ export default function Inventory() {
   // HELPERS
   // ============================================================
 
-  // ✅ Added Catalog Sorting Logic
+  // ✅ Combined Sorting Logic for Catalog
   const filtered = useMemo(() => {
     let list = parts.filter((p) => {
       const q = search.toLowerCase();
@@ -763,33 +814,39 @@ export default function Inventory() {
       );
     });
 
-    list.sort((a, b) => {
-      switch (catalogSort) {
-        case "name-asc":
-          return a.name.localeCompare(b.name);
-        case "name-desc":
-          return b.name.localeCompare(a.name);
-        case "price-asc":
-          return a.price - b.price;
-        case "price-desc":
-          return b.price - a.price;
-        case "qty-asc":
-          return a.quantity - b.quantity;
-        case "qty-desc":
-          return b.quantity - a.quantity;
-        case "low-first": {
+    // 1. Apply Stock Sort (if selected) - This takes priority
+    if (stockSort !== "none") {
+      list.sort((a, b) => {
+        if (stockSort === "qty-asc") return a.quantity - b.quantity;
+        if (stockSort === "qty-desc") return b.quantity - a.quantity;
+        if (stockSort === "low-first") {
           const aLow = a.quantity <= a.reorder_level ? 0 : 1;
           const bLow = b.quantity <= b.reorder_level ? 0 : 1;
           if (aLow !== bLow) return aLow - bLow;
           return a.quantity - b.quantity;
         }
-        default:
-          return 0;
-      }
-    });
+        return 0;
+      });
+    }
+    // 2. If Stock Sort is none, apply Price Sort
+    else if (priceSort !== "none") {
+      list.sort((a, b) => {
+        if (priceSort === "price-asc") return a.price - b.price;
+        if (priceSort === "price-desc") return b.price - a.price;
+        return 0;
+      });
+    }
+    // 3. If Price is none, apply Name Sort (Default)
+    else {
+      list.sort((a, b) => {
+        if (nameSort === "name-asc") return a.name.localeCompare(b.name);
+        if (nameSort === "name-desc") return b.name.localeCompare(a.name);
+        return 0;
+      });
+    }
 
     return list;
-  }, [parts, search, catalogSort]);
+  }, [parts, search, nameSort, priceSort, stockSort]);
 
   const money = (n: number) =>
     "₱" + n.toLocaleString("en-PH", { minimumFractionDigits: 2 });
@@ -866,20 +923,54 @@ export default function Inventory() {
                   />
                 </div>
 
-                {/* ✅ Added Sort Dropdown */}
-                <select
-                  value={catalogSort}
-                  onChange={(e) => setCatalogSort(e.target.value as SortOption)}
-                  className="inv-select"
-                >
-                  <option value="name-asc">Name (A–Z)</option>
-                  <option value="name-desc">Name (Z–A)</option>
-                  <option value="price-asc">Price (Low → High)</option>
-                  <option value="price-desc">Price (High → Low)</option>
-                  <option value="qty-asc">Stock (Low → High)</option>
-                  <option value="qty-desc">Stock (High → Low)</option>
-                  <option value="low-first">⚠️ Low stock first</option>
-                </select>
+                {/* ✅ 3 Separate Sort Pills */}
+                <div className="inv-sort-group">
+                  {/* Name Sort */}
+                  <div className="inv-sort-pill">
+                    <span className="inv-sort-label">Name</span>
+                    <select
+                      value={nameSort}
+                      onChange={(e) => handleSortChange("name", e.target.value)}
+                      className="inv-sort-select"
+                    >
+                      <option value="name-asc">A–Z</option>
+                      <option value="name-desc">Z–A</option>
+                    </select>
+                  </div>
+
+                  {/* Price Sort */}
+                  <div className="inv-sort-pill">
+                    <span className="inv-sort-label">Price</span>
+                    <select
+                      value={priceSort}
+                      onChange={(e) =>
+                        handleSortChange("price", e.target.value)
+                      }
+                      className="inv-sort-select"
+                    >
+                      <option value="none">Default</option>
+                      <option value="price-asc">Low → High</option>
+                      <option value="price-desc">High → Low</option>
+                    </select>
+                  </div>
+
+                  {/* Stock Sort */}
+                  <div className="inv-sort-pill">
+                    <span className="inv-sort-label">Stock</span>
+                    <select
+                      value={stockSort}
+                      onChange={(e) =>
+                        handleSortChange("stock", e.target.value)
+                      }
+                      className="inv-sort-select"
+                    >
+                      <option value="none">Default</option>
+                      <option value="qty-asc">Low → High</option>
+                      <option value="qty-desc">High → Low</option>
+                      <option value="low-first">⚠️ Low First</option>
+                    </select>
+                  </div>
+                </div>
 
                 <button
                   type="button"
@@ -1608,17 +1699,22 @@ export default function Inventory() {
               </div>
 
               <div className="form-row">
+                {/* ✅ Replaced manual Selling Price input with a read-only calculated field */}
                 <div className="form-group">
                   <label>Selling Price (₱) *</label>
                   <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={form.price}
-                    onChange={(e) =>
-                      setForm({ ...form, price: e.target.value })
-                    }
-                    required
+                    type="text"
+                    value={money(
+                      (parseFloat(form.cost_price) || 0) *
+                        (1 + (parseFloat(form.markup_percent) || 0) / 100),
+                    )}
+                    readOnly
+                    style={{
+                      backgroundColor: "#f9fafb",
+                      cursor: "not-allowed",
+                      fontWeight: "bold",
+                      color: "#0f6b5c",
+                    }}
                   />
                 </div>
                 <div className="form-group">
@@ -1668,23 +1764,6 @@ export default function Inventory() {
                     setForm({ ...form, description: e.target.value })
                   }
                 />
-              </div>
-
-              {/* New Selling Price Indicator */}
-              <div className="adj-preview" style={{ marginTop: "8px" }}>
-                <span className="adj-preview__label">
-                  Calculated Selling Price
-                </span>
-                <span className="adj-preview__value">
-                  <strong>
-                    {form.price
-                      ? money(parseFloat(form.price))
-                      : money(
-                          (parseFloat(form.cost_price) || 0) *
-                            (1 + (parseFloat(form.markup_percent) || 0) / 100),
-                        )}
-                  </strong>
-                </span>
               </div>
 
               <div className="modal-actions">

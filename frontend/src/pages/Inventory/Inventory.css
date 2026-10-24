@@ -1221,3 +1221,66 @@ textarea.adj-input {
     flex: 1;
   }
 }
+
+/* ============================================================
+   UNIFIED CATALOG SORTING PILLS (3 Separate)
+   ============================================================ */
+
+.inv-sort-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.inv-sort-pill {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0 12px;
+  height: 40px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.inv-sort-pill:focus-within {
+  border-color: #0f6b5c;
+  box-shadow: 0 0 0 3px rgba(15, 107, 92, 0.1);
+}
+
+.inv-sort-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  margin-right: 8px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.inv-sort-select {
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  outline: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0 4px 0 0;
+}
+
+/* Responsive adjustment for the toolbar to wrap nicely */
+@media (max-width: 1200px) {
+  .inv-sort-group {
+    width: 100%;
+    margin-top: 10px;
+  }
+  .inv-sort-pill {
+    flex: 1;
+    min-width: 150px;
+  }
+}
