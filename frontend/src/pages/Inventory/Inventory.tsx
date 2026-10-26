@@ -161,7 +161,9 @@ export default function Inventory() {
   const [adjReason, setAdjReason] = useState(REASONS_IN[0]);
   const [adjNotes, setAdjNotes] = useState("");
 
-  // Pricing fields for Stock In
+  // Pricing fields for Stock In (now includes Name, Category, Supplier)
+  const [adjName, setAdjName] = useState("");
+  const [adjCategory, setAdjCategory] = useState("");
   const [adjCost, setAdjCost] = useState("");
   const [adjMarkup, setAdjMarkup] = useState("");
   const [adjSupplier, setAdjSupplier] = useState("");
@@ -239,16 +241,20 @@ export default function Inventory() {
     setAdjReason(adjType === "in" ? REASONS_IN[0] : REASONS_OUT[0]);
   }, [adjType]);
 
-  // Populate pricing fields when the selected part changes in the adjustments tab
+  // Populate ALL fields when the selected part changes in the adjustments tab
   useEffect(() => {
     if (adjMode === "existing" && adjPart) {
       const p = parts.find((x) => x.part_id === adjPart);
       if (p) {
+        setAdjName(p.name);
+        setAdjCategory(p.category);
         setAdjCost(p.cost_price?.toString() || "0");
         setAdjMarkup(p.markup_percent?.toString() || "20");
         setAdjSupplier(p.supplier || "");
       }
     } else {
+      setAdjName("");
+      setAdjCategory("");
       setAdjCost("");
       setAdjMarkup("");
       setAdjSupplier("");
@@ -261,7 +267,6 @@ export default function Inventory() {
     const markup = parseFloat(form.markup_percent) || 0;
     const calculatedPrice = cost * (1 + markup / 100);
 
-    // Only update if there is a change to prevent infinite render loops
     if (
       form.price !== calculatedPrice.toString() &&
       (cost > 0 || form.price === "")
@@ -307,7 +312,6 @@ export default function Inventory() {
   // SORTING LOGIC
   // ============================================================
 
-  // ✅ Exclusive Sorting Logic
   const handleSortChange = (
     type: "name" | "price" | "stock",
     value: string,
@@ -318,11 +322,11 @@ export default function Inventory() {
       setStockSort("none");
     } else if (type === "price") {
       setPriceSort(value as PriceSort);
-      setNameSort("name-asc"); // Reset name to default
+      setNameSort("name-asc");
       setStockSort("none");
     } else if (type === "stock") {
       setStockSort(value as StockSort);
-      setNameSort("name-asc"); // Reset name to default
+      setNameSort("name-asc");
       setPriceSort("none");
     }
   };
@@ -417,7 +421,7 @@ export default function Inventory() {
   };
 
   // ============================================================
-  // RECEIVE SUPPLY
+  // RECEIVE SUPPLY (FROM CATALOG ACTION BUTTON)
   // ============================================================
 
   const openReceiveModal = (part: Part) => {
@@ -468,12 +472,6 @@ export default function Inventory() {
 
   const selectedPart = parts.find((p) => p.part_id === adjPart);
   const adjQtyNum = parseInt(adjQty) || 0;
-
-  const projectedQty = selectedPart
-    ? adjType === "in"
-      ? selectedPart.quantity + adjQtyNum
-      : Math.max(0, selectedPart.quantity - adjQtyNum)
-    : 0;
 
   const handleAdjustSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -535,23 +533,56 @@ export default function Inventory() {
         setNewName("");
         setNewCategory("");
         setNewSupplier("");
-      } else if (adjType === "in" && adjCost && selectedPart) {
-        const currentCost = Number(selectedPart.cost_price) || 0;
-        const newCost = parseFloat(adjCost);
-        const currentMarkup = Number(selectedPart.markup_percent) || 20;
-        const newMarkup = parseFloat(adjMarkup || "20");
+      } else if (adjType === "in" && selectedPart) {
+        const newCost = parseFloat(adjCost) || 0;
+        const newMarkup = parseFloat(adjMarkup) || 0;
 
-        const isPriceChanged =
-          currentCost !== newCost || currentMarkup !== newMarkup;
+        // ✅ 1.5 Detect Changes across all relevant fields
+        const isCostChanged = Number(selectedPart.cost_price) !== newCost;
+        const isMarkupChanged =
+          Number(selectedPart.markup_percent) !== newMarkup;
+        const isSupplierChanged = (selectedPart.supplier || "") !== adjSupplier;
+        const isCategoryChanged = selectedPart.category !== adjCategory;
+        const isNameChanged = selectedPart.name !== adjName;
 
-        if (isPriceChanged) {
-          const newPartNumberStr = `${selectedPart.part_number}-NEW-${Date.now().toString().slice(-4)}`;
-          const newNameStr = `${selectedPart.name} (New Batch)`;
+        const hasChanged =
+          isCostChanged ||
+          isMarkupChanged ||
+          isSupplierChanged ||
+          isCategoryChanged ||
+          isNameChanged;
+
+        if (hasChanged) {
+          // ✅ 1.1, 1.3, 1.4 Professional Clone Logic
+          // Extract base part number (remove any existing -V1, -V2, etc.)
+          const basePartNumber = selectedPart.part_number.split("-V")[0];
+
+          // Find how many variants of this base part already exist to generate the next number
+          const existingVariants = parts.filter((p) =>
+            p.part_number.startsWith(basePartNumber + "-V"),
+          );
+          let nextVersionNum = 1;
+
+          if (existingVariants.length > 0) {
+            const highestVersion = Math.max(
+              ...existingVariants.map((v) => {
+                const match = v.part_number.match(/-V(\d+)$/);
+                return match ? parseInt(match[1]) : 0;
+              }),
+            );
+            nextVersionNum = highestVersion + 1;
+          }
+
+          const newPartNumberStr = `${basePartNumber}-V${nextVersionNum}`;
+
+          // ✅ 1.4 Extract base name (remove any existing (v1), (v2), etc.) and append the new version number
+          const baseName = selectedPart.name.replace(/\s*\(v\d+\)$/, "");
+          const newNameStr = `${baseName} (v${nextVersionNum})`;
 
           await createPart({
             part_number: newPartNumberStr,
-            name: newNameStr,
-            category: selectedPart.category,
+            name: newNameStr, // Use the new modified name
+            category: adjCategory, // Use the new modified category
             description: selectedPart.description || "",
             price: (newCost * (1 + newMarkup / 100)).toString(),
             cost_price: newCost.toString(),
@@ -559,13 +590,14 @@ export default function Inventory() {
             reorder_level: selectedPart.reorder_level.toString(),
             quantity: adjQtyNum.toString(),
             location: selectedPart.location || "",
-            supplier: adjSupplier || selectedPart.supplier || "",
+            supplier: adjSupplier, // Use the new modified supplier
           });
           showToast(
-            `Price changed. Created new batch: "${newNameStr}".`,
+            `Details changed. Created new variant: "${newNameStr}".`,
             "success",
           );
         } else {
+          // ✅ 1.2 No changes detected, just add stock to existing
           await receiveStock({
             part_id: selectedPart.part_id,
             quantity: adjQtyNum,
@@ -579,6 +611,7 @@ export default function Inventory() {
           );
         }
       } else if (selectedPart) {
+        // STOCK OUT LOGIC
         await adjustStock({
           part_id: selectedPart.part_id,
           type: adjType,
@@ -803,7 +836,6 @@ export default function Inventory() {
   // HELPERS
   // ============================================================
 
-  // ✅ Combined Sorting Logic for Catalog
   const filtered = useMemo(() => {
     let list = parts.filter((p) => {
       const q = search.toLowerCase();
@@ -814,7 +846,6 @@ export default function Inventory() {
       );
     });
 
-    // 1. Apply Stock Sort (if selected) - This takes priority
     if (stockSort !== "none") {
       list.sort((a, b) => {
         if (stockSort === "qty-asc") return a.quantity - b.quantity;
@@ -827,17 +858,13 @@ export default function Inventory() {
         }
         return 0;
       });
-    }
-    // 2. If Stock Sort is none, apply Price Sort
-    else if (priceSort !== "none") {
+    } else if (priceSort !== "none") {
       list.sort((a, b) => {
         if (priceSort === "price-asc") return a.price - b.price;
         if (priceSort === "price-desc") return b.price - a.price;
         return 0;
       });
-    }
-    // 3. If Price is none, apply Name Sort (Default)
-    else {
+    } else {
       list.sort((a, b) => {
         if (nameSort === "name-asc") return a.name.localeCompare(b.name);
         if (nameSort === "name-desc") return b.name.localeCompare(a.name);
@@ -1132,7 +1159,8 @@ export default function Inventory() {
                         <option value="">— Select a part —</option>
                         {parts.map((p) => (
                           <option key={p.part_id} value={p.part_id}>
-                            {p.name} ({p.part_number}) — {p.quantity} in stock
+                            {p.name} ({p.supplier || "No Supplier"}) —{" "}
+                            {p.quantity} in stock
                           </option>
                         ))}
                       </select>
@@ -1223,7 +1251,83 @@ export default function Inventory() {
                     />
                   </div>
 
-                  {adjType === "in" && (
+                  {/* ✅ Added editable fields for Name, Category, Supplier to detect changes */}
+                  {adjType === "in" &&
+                    adjMode === "existing" &&
+                    selectedPart && (
+                      <>
+                        <div className="form-row">
+                          <div className="adj-group">
+                            <label>Name</label>
+                            <input
+                              type="text"
+                              value={adjName}
+                              onChange={(e) => setAdjName(e.target.value)}
+                              className="adj-input"
+                            />
+                          </div>
+                          <div className="adj-group">
+                            <label>Category</label>
+                            <input
+                              type="text"
+                              value={adjCategory}
+                              onChange={(e) => setAdjCategory(e.target.value)}
+                              className="adj-input"
+                            />
+                          </div>
+                        </div>
+                        <div className="form-row">
+                          <div className="adj-group">
+                            <label>Cost per Unit (₱)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={adjCost}
+                              onChange={(e) => setAdjCost(e.target.value)}
+                              className="adj-input"
+                            />
+                          </div>
+                          <div className="adj-group">
+                            <label>Markup (%)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={adjMarkup}
+                              onChange={(e) => setAdjMarkup(e.target.value)}
+                              className="adj-input"
+                            />
+                          </div>
+                        </div>
+                        <div className="adj-group">
+                          <label>Supplier</label>
+                          <input
+                            type="text"
+                            value={adjSupplier}
+                            onChange={(e) => setAdjSupplier(e.target.value)}
+                            placeholder="e.g. Bosch, Denso"
+                            className="adj-input"
+                          />
+                        </div>
+
+                        <div className="adj-preview">
+                          <span className="adj-preview__label">
+                            New Selling Price
+                          </span>
+                          <span className="adj-preview__value">
+                            <strong>
+                              {money(
+                                (parseFloat(adjCost) || 0) *
+                                  (1 + (parseFloat(adjMarkup) || 0) / 100),
+                              )}
+                            </strong>
+                          </span>
+                        </div>
+                      </>
+                    )}
+
+                  {adjType === "in" && adjMode === "new" && (
                     <>
                       <div className="form-row">
                         <div className="adj-group">
@@ -1265,21 +1369,6 @@ export default function Inventory() {
                       </div>
                     </>
                   )}
-
-                  {adjMode === "existing" &&
-                    adjType === "in" &&
-                    selectedPart && (
-                      <div className="adj-group">
-                        <label>Supplier</label>
-                        <input
-                          type="text"
-                          value={adjSupplier}
-                          onChange={(e) => setAdjSupplier(e.target.value)}
-                          placeholder="e.g. Bosch, Denso"
-                          className="adj-input"
-                        />
-                      </div>
-                    )}
 
                   {adjType === "out" && (
                     <div className="adj-group">
