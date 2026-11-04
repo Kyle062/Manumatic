@@ -575,17 +575,35 @@
   flex-direction: column;
 }
 
-.top-range-select {
-  border: 1px solid #e5e7eb;
+/* Replace your existing .top-range-select rule with this: */
+.top-range-toggle {
+  display: flex;
+  background: #f1f3f4;
   border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.top-range-btn {
+  background: transparent;
+  border: none;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
   font-weight: 600;
-  color: #4b5563;
-  background: #f9fafb;
-  outline: none;
+  color: #6b7280;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: all 0.15s ease;
+}
+
+.top-range-btn:hover {
+  color: #111827;
+}
+
+.top-range-btn.is-active {
+  background: #ffffff;
+  color: #0f6b5c;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .top-range-select:focus {

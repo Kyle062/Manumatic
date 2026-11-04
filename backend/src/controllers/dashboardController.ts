@@ -2,10 +2,6 @@ import { Response, NextFunction } from "express";
 import * as dashboardService from "../services/dashboardService";
 import { AuthRequest } from "../types";
 
-// ============================================================
-// GET /api/dashboard/stats
-// ============================================================
-
 export const getStats = async (
   _req: AuthRequest,
   res: Response,
@@ -18,10 +14,6 @@ export const getStats = async (
     next(error);
   }
 };
-
-// ============================================================
-// GET /api/dashboard/transactions
-// ============================================================
 
 export const getTransactions = async (
   _req: AuthRequest,
@@ -36,10 +28,6 @@ export const getTransactions = async (
   }
 };
 
-// ============================================================
-// GET /api/dashboard/logs
-// ============================================================
-
 export const getLogs = async (
   _req: AuthRequest,
   res: Response,
@@ -53,26 +41,21 @@ export const getLogs = async (
   }
 };
 
-// ============================================================
-// GET /api/dashboard/top-selling
-// ============================================================
-
 export const getTopSelling = async (
-  _req: AuthRequest,
+  req: AuthRequest,
   res: Response,
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const top = await dashboardService.getTopSellingParts(5);
+    const limit = Number(req.query.limit) || 5;
+    const range = (req.query.range as string) || "week";
+
+    const top = await dashboardService.getTopSellingParts(limit, range);
     res.json(top);
   } catch (error) {
     next(error);
   }
 };
-
-// ============================================================
-// GET /api/dashboard/sales-trend
-// ============================================================
 
 export const getSalesTrend = async (
   _req: AuthRequest,
@@ -86,10 +69,6 @@ export const getSalesTrend = async (
     next(error);
   }
 };
-
-// ============================================================
-// GET /api/dashboard/low-stock
-// ============================================================
 
 export const getLowStock = async (
   _req: AuthRequest,

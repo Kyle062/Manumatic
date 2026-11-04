@@ -7,10 +7,6 @@ import {
   SalesTrendPoint,
 } from "../types";
 
-// ============================================================
-// GET DASHBOARD STATS
-// ============================================================
-
 export const getStats = async (): Promise<DashboardStats> => {
   const [
     todayStats,
@@ -38,19 +34,9 @@ export const getStats = async (): Promise<DashboardStats> => {
   };
 };
 
-// ============================================================
-// GET RECENT TRANSACTIONS
-// ============================================================
-
 export const getRecentTransactions = async (limit = 10) => {
   return saleModel.findRecent(limit);
 };
-
-// ============================================================
-// GET ACTIVITY LOGS
-// ============================================================
-// FIXED: Force Asia/Manila timezone so times match local clock
-// ============================================================
 
 export const getActivityLogs = async (limit = 8): Promise<ActivityLog[]> => {
   const recent = await saleModel.findRecent(limit);
@@ -58,7 +44,7 @@ export const getActivityLogs = async (limit = 8): Promise<ActivityLog[]> => {
   return recent.map((sale) => {
     const date = new Date(sale.sale_date);
     const time = date.toLocaleTimeString("en-PH", {
-      timeZone: "Asia/Manila", // ← FIX: Force Manila timezone
+      timeZone: "Asia/Manila",
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
@@ -71,27 +57,16 @@ export const getActivityLogs = async (limit = 8): Promise<ActivityLog[]> => {
   });
 };
 
-// ============================================================
-// GET TOP SELLING PARTS
-// ============================================================
-
 export const getTopSellingParts = async (
   limit = 5,
+  range = "week",
 ): Promise<TopSellingPart[]> => {
-  return saleModel.getTopSelling(limit);
+  return saleModel.getTopSelling(limit, range);
 };
-
-// ============================================================
-// GET SALES TREND (last 7 days)
-// ============================================================
 
 export const getSalesTrend = async (): Promise<SalesTrendPoint[]> => {
   return saleModel.getSalesTrend();
 };
-
-// ============================================================
-// GET LOW STOCK PARTS (for "Needs Reordering" card)
-// ============================================================
 
 export const getLowStockParts = async () => {
   return partModel.findLowStock();

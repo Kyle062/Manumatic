@@ -582,17 +582,22 @@ export default function Dashboard() {
             <div className="dash-card dash-top">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Top Selling Parts</h2>
-                <select
-                  value={topRange}
-                  onChange={(e) =>
-                    setTopRange(e.target.value as "today" | "week" | "month")
-                  }
-                  className="top-range-select"
-                >
-                  <option value="today">Today</option>
-                  <option value="week">This Week</option>
-                  <option value="month">This Month</option>
-                </select>
+                <div className="top-range-toggle">
+                  {(["today", "week", "month"] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      className={`top-range-btn ${topRange === r ? "is-active" : ""}`}
+                      onClick={() => setTopRange(r)}
+                    >
+                      {r === "today"
+                        ? "Today"
+                        : r === "week"
+                          ? "Week"
+                          : "Month"}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {topSelling.length === 0 ? (
