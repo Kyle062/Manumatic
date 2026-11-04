@@ -210,7 +210,25 @@ export interface TopSellingRow {
   revenue: number;
 }
 
-export const getTopSelling = async (limit = 5): Promise<TopSellingRow[]> => {
+export const getTopSelling = async (
+  limit = 5,
+  range = "week",
+): Promise<TopSellingRow[]> => {
+  let dateFilter = "";
+  
+  switch (range) {
+    case "today":
+      dateFilter = "WHERE DATE(s.sale_date) = CURDATE()";
+      break;
+    case "month":
+      dateFilter = "WHERE s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+      break;
+    case "week":
+    default:
+      dateFilter = "WHERE s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+      break;
+  }
+
   const [rows] = await pool.execute(
     `SELECT
        p.part_id,
@@ -219,6 +237,7 @@ export const getTopSelling = async (limit = 5): Promise<TopSellingRow[]> => {
        SUM(s.total_price) AS revenue
      FROM sales s
      JOIN parts p ON s.part_id = p.part_id
+     ${dateFilter}
      GROUP BY p.part_id, p.name
      ORDER BY sold DESC
      LIMIT ?`,

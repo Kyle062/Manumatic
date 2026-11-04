@@ -39,10 +39,6 @@ import "./Dashboard.css";
 import DashboardImg1 from "../../assets/images/DashboardImg1.png";
 import DashboardImg2 from "../../assets/images/DashboardImg2.png";
 
-// ============================================================
-// TYPES
-// ============================================================
-
 interface DashboardStats {
   todaySales: {
     total_sales: number;
@@ -88,24 +84,15 @@ interface LowStockPart {
   reorder_level: number;
 }
 
-// ============================================================
-// BANNER SLIDES
-// ============================================================
-
 const bannerSlides = [
   { src: DashboardImg1, alt: "Banner 1 — Car Service" },
   { src: DashboardImg2, alt: "Banner 2 — Motorcycle Repair" },
 ];
 
-// ============================================================
-// COMPONENT
-// ============================================================
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // ---- Data state ----
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [logs, setLogs] = useState<ActivityLog[]>([]);
@@ -115,27 +102,29 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ---- Carousel state ----
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
 
-  // ---- Fetch all dashboard data on mount ----
+  const [topRange, setTopRange] = useState<"today" | "week" | "month">("week");
+
   useEffect(() => {
     fetchDashboardData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchTopSellingData();
+  }, [topRange]);
 
   const fetchDashboardData = async () => {
     setLoading(true);
     setError("");
 
     try {
-      const [statsRes, txnRes, logsRes, topRes, trendRes, lowStockRes] =
+      const [statsRes, txnRes, logsRes, trendRes, lowStockRes] =
         await Promise.all([
           getDashboardStats(),
           getDashboardTransactions(6),
           getActivityLogs(6),
-          getTopSelling(5),
           getSalesTrend(),
           getLowStockParts(),
         ]);
@@ -143,7 +132,6 @@ export default function Dashboard() {
       setStats(statsRes.data);
       setTransactions(txnRes.data);
       setLogs(logsRes.data);
-      setTopSelling(topRes.data);
       setSalesTrend(trendRes.data);
       setLowStock(lowStockRes.data);
     } catch (err: any) {
@@ -157,7 +145,15 @@ export default function Dashboard() {
     }
   };
 
-  // ---- Carousel auto-advance ----
+  const fetchTopSellingData = async () => {
+    try {
+      const topRes = await getTopSelling(5, topRange);
+      setTopSelling(topRes.data);
+    } catch (err) {
+      console.error("Top selling fetch error:", err);
+    }
+  };
+
   useEffect(() => {
     if (paused) return;
     const id = setInterval(() => {
@@ -170,7 +166,6 @@ export default function Dashboard() {
     setSlide((s) => (s - 1 + bannerSlides.length) % bannerSlides.length);
   const nextSlide = () => setSlide((s) => (s + 1) % bannerSlides.length);
 
-  // ---- Helpers ----
   const money = (n: number) =>
     "₱" +
     n.toLocaleString("en-PH", {
@@ -180,7 +175,6 @@ export default function Dashboard() {
 
   const shortMoney = (n: number) => "₱" + n.toLocaleString("en-PH");
 
-  // ⚠️ FIXED: Format date in Asia/Manila timezone
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return d.toLocaleDateString("en-CA", {
@@ -222,9 +216,7 @@ export default function Dashboard() {
     },
   ];
 
-  // ============================================================
-  // RENDER
-  // ============================================================
+  const displayRole = user?.role === "admin" ? "Admin" : "Manager";
 
   if (loading) {
     return (
@@ -250,11 +242,10 @@ export default function Dashboard() {
         <div className="dashboard-content">
           {error && <div className="dash-error">{error}</div>}
 
-          {/* WELCOME STRIP */}
           <div className="welcome-strip">
             <div className="welcome-strip__left">
               <h2 className="welcome-strip__title">
-                Welcome back, {user?.name?.split(" ")[0] || "User"} 👋
+                Welcome back, {displayRole} 👋
               </h2>
               <p className="welcome-strip__sub">
                 Here's what's happening in your store today.
@@ -272,7 +263,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ROW 1: Analytics + Needs Reordering */}
           <div className="dash-row-top">
             <div className="dash-card dash-analytics">
               <div className="dash-card__head">
@@ -391,7 +381,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Needs Reordering */}
             <div className="dash-card dash-reorder">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Needs reordering</h2>
@@ -439,7 +428,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ROW 2: Recent Transactions + Activity Logs */}
           <div className="dash-row-bottom">
             <div className="dash-card dash-transactions">
               <div className="dash-card__subtitle-row">
@@ -500,7 +488,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* ROW 3: Quick Actions (with carousel) + Top Selling */}
           <div className="dash-row-third">
             <div className="dash-card dash-quick">
               <div className="dash-card__head">
@@ -595,7 +582,17 @@ export default function Dashboard() {
             <div className="dash-card dash-top">
               <div className="dash-card__head">
                 <h2 className="dash-card__title">Top Selling Parts</h2>
-                <span className="dash-card__hint">This week</span>
+                <select
+                  value={topRange}
+                  onChange={(e) =>
+                    setTopRange(e.target.value as "today" | "week" | "month")
+                  }
+                  className="top-range-select"
+                >
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                </select>
               </div>
 
               {topSelling.length === 0 ? (

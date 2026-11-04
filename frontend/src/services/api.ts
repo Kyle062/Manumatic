@@ -1,10 +1,6 @@
 import axios from "axios";
 import { User, Part, Sale, DashboardStats, LoginResponse } from "../types";
 
-// ============================================================
-// CONFIGURATION
-// ============================================================
-
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
@@ -14,10 +10,6 @@ const api = axios.create({
     "Content-Type": "application/json",
   },
 });
-
-// ============================================================
-// REQUEST INTERCEPTOR — Attach JWT token to every request
-// ============================================================
 
 api.interceptors.request.use(
   (config) => {
@@ -30,10 +22,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// ============================================================
-// RESPONSE INTERCEPTOR — Log errors but DON'T auto-logout
-// ============================================================
-
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -42,7 +30,7 @@ api.interceptors.response.use(
 
     if (status === 401 || status === 403) {
       console.warn(
-        `⚠️ Auth error on ${url} (${status}):`,
+        `Auth error on ${url} (${status}):`,
         error.response?.data?.message || "No message",
       );
     }
@@ -51,32 +39,31 @@ api.interceptors.response.use(
   },
 );
 
-// Simulated delay (used only in mock mode)
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// ============================================================
-// AUTH
-// ============================================================
 
 export const loginUser = async (
   username: string,
   password: string,
+  role: "admin" | "manager",
 ): Promise<{ data: LoginResponse }> => {
   if (USE_MOCK) {
     await delay(500);
 
     const credentials = [
-      { username: "admin", password: "admin123" },
-      { username: "manager", password: "manager123" },
+      { username: "admin", password: "admin123", role: "admin" },
+      { username: "manager", password: "manager123", role: "manager" },
     ];
 
     const valid = credentials.find(
-      (c) => c.username === username && c.password === password,
+      (c) =>
+        c.username === username && c.password === password && c.role === role,
     );
 
     if (!valid) {
       throw {
-        response: { data: { message: "Invalid username or password." } },
+        response: {
+          data: { message: "Invalid credentials or wrong role selected." },
+        },
       };
     }
 
@@ -106,7 +93,7 @@ export const loginUser = async (
     };
   }
 
-  return api.post("/auth/login", { username, password });
+  return api.post("/auth/login", { username, password, role });
 };
 
 export const getCurrentUser = async () => {
@@ -121,10 +108,6 @@ export const getCurrentUser = async () => {
 
   return api.get("/auth/me");
 };
-
-// ============================================================
-// DASHBOARD
-// ============================================================
 
 export const getDashboardStats = async (): Promise<{
   data: DashboardStats;
@@ -163,13 +146,12 @@ export const getActivityLogs = async (limit = 8) => {
   return api.get(`/dashboard/logs?limit=${limit}`);
 };
 
-export const getTopSelling = async (limit = 5) => {
+export const getTopSelling = async (limit = 5, range = "week") => {
   if (USE_MOCK) {
     await delay(300);
     return { data: [] };
   }
-
-  return api.get(`/dashboard/top-selling?limit=${limit}`);
+  return api.get(`/dashboard/top-selling?limit=${limit}&range=${range}`);
 };
 
 export const getSalesTrend = async () => {
@@ -180,10 +162,6 @@ export const getSalesTrend = async () => {
 
   return api.get("/dashboard/sales-trend");
 };
-
-// ============================================================
-// INVENTORY
-// ============================================================
 
 export const getAllParts = async (): Promise<{ data: Part[] }> => {
   if (USE_MOCK) {
@@ -268,10 +246,6 @@ export const adjustStock = async (data: {
   return api.post("/inventory/adjust", data);
 };
 
-// ============================================================
-// RECEIVE STOCK (Updates cost, price, and quantity)
-// ============================================================
-
 export const receiveStock = async (data: {
   part_id: number;
   quantity: number;
@@ -287,10 +261,6 @@ export const receiveStock = async (data: {
 
   return api.post("/inventory/receive", data);
 };
-
-// ============================================================
-// USER MANAGEMENT (Admin only)
-// ============================================================
 
 export const listUsers = async () => {
   if (USE_MOCK) {
@@ -339,10 +309,6 @@ export const toggleUserActive = async (id: number, is_active: boolean) => {
   return api.put(`/users/${id}/active`, { is_active });
 };
 
-// ============================================================
-// SALES (for future POS module)
-// ============================================================
-
 export const getAllSales = async () => {
   if (USE_MOCK) {
     await delay(300);
@@ -360,10 +326,6 @@ export const createSale = async (saleData: any) => {
 
   return api.post("/sales", saleData);
 };
-
-// ============================================================
-// CHECKOUT (POS — Cash Only)
-// ============================================================
 
 export const checkout = async (data: {
   items: Array<{ part_id: number; quantity: number }>;
@@ -383,10 +345,6 @@ export const checkout = async (data: {
 
   return api.post("/inventory/checkout", data);
 };
-
-// ============================================================
-// REPORTS
-// ============================================================
 
 export const getSalesOverview = async (range: string = "today") => {
   if (USE_MOCK) {
