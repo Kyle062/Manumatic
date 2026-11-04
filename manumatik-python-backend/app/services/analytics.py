@@ -3,12 +3,16 @@ from app.database import engine
 
 
 def get_sales_overview_analytics(range_type: str):
+    today = pd.Timestamp.now()
+
     if range_type == "today":
-        date_filter = "DATE(s.sale_date) = CURDATE()"
+        date_filter = f"DATE(s.sale_date) = '{today.strftime('%Y-%m-%d')}'"
     elif range_type == "week":
-        date_filter = "s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+        start_of_week = (today - pd.Timedelta(days=6)).strftime("%Y-%m-%d")
+        date_filter = f"DATE(s.sale_date) >= '{start_of_week}'"
     else:
-        date_filter = "s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)"
+        start_of_month = (today - pd.Timedelta(days=29)).strftime("%Y-%m-%d")
+        date_filter = f"DATE(s.sale_date) >= '{start_of_month}'"
 
     query = f"""
         SELECT 
@@ -19,7 +23,6 @@ def get_sales_overview_analytics(range_type: str):
         WHERE {date_filter}
     """
 
-    # Use a raw connection directly from the engine
     with engine.connect() as conn:
         df = pd.read_sql(query, conn)
 

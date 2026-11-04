@@ -1,0 +1,15 @@
+{
+  "name": "manumatik-root",
+  "version": "1.0.0",
+  "description": "Root runner for React, Node, and Python",
+  "scripts": {
+    "start": "concurrently -n \"PYTHON,NODE,REACT\" -c \"cyan,green,magenta\" \"npm run start:python\" \"npm run start:backend\" \"npm run start:frontend\"",
+    "start:python": "cd manumatik-python-backend && .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8000",
+    "start:backend": "cd backend && npm run dev",
+    "start:frontend": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
+  }
+}
