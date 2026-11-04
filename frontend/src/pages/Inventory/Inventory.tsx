@@ -21,6 +21,7 @@ import {
   Eye,
   EyeOff,
   ArrowDownToLine,
+  Printer,
 } from "lucide-react";
 import {
   getAllParts,
@@ -371,6 +372,10 @@ export default function Inventory() {
       } else {
         await createPart(form);
         showToast(`"${form.name}" was added to the catalog.`, "success");
+
+        // ✅ Generate barcode on successful creation
+        const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(form.part_number)}&name=${encodeURIComponent(form.name)}&price=${form.price}`;
+        window.open(barcodeUrl, "_blank");
       }
       await fetchParts();
       closeModal();
@@ -500,6 +505,11 @@ export default function Inventory() {
           `New part "${newName}" created with ${adjQty} units.`,
           "success",
         );
+
+        // ✅ Generate barcode on successful creation (Stock Adjustment)
+        const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(newPartNumber)}&name=${encodeURIComponent(newName)}&price=${newPrice.toFixed(2)}`;
+        window.open(barcodeUrl, "_blank");
+
         setAdjMode("existing");
         setNewName("");
         setNewCategory("");
@@ -563,6 +573,10 @@ export default function Inventory() {
             `Details changed. Created new variant: "${newNameStr}".`,
             "success",
           );
+
+          // ✅ Generate barcode on successful variant creation
+          const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(newPartNumberStr)}&name=${encodeURIComponent(newNameStr)}&price=${(newCost * (1 + newMarkup / 100)).toFixed(2)}`;
+          window.open(barcodeUrl, "_blank");
         } else {
           await receiveStock({
             part_id: selectedPart.part_id,
@@ -1012,6 +1026,17 @@ export default function Inventory() {
                                   title="Receive Supply"
                                 >
                                   <ArrowDownToLine size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="inv-icon-btn"
+                                  onClick={() => {
+                                    const url = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(part.part_number)}&name=${encodeURIComponent(part.name)}&price=${part.price}`;
+                                    window.open(url, "_blank");
+                                  }}
+                                  title="Print Barcode"
+                                >
+                                  <Printer size={14} />
                                 </button>
                                 <button
                                   type="button"
