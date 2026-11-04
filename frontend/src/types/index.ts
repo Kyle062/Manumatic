@@ -70,6 +70,7 @@ export interface DashboardStats {
 export interface AuthContextType {
   user: User | null;
   token: string | null;
+  loading: boolean; // ✅ Added this line
   login: (user: User, token: string) => void;
   logout: () => void;
   isAuthenticated: boolean;

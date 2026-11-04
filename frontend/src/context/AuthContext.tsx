@@ -3,7 +3,7 @@ import {
   useContext,
   useState,
   useEffect,
-  ReactNode
+  ReactNode,
 } from "react";
 import { User, AuthContextType } from "../types";
 
@@ -12,15 +12,26 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true); // ✅ Added loading state
 
   // Restore session on mount
   useEffect(() => {
     const storedToken = localStorage.getItem("token");
     const storedUser = localStorage.getItem("user");
+
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        // If JSON is corrupted, clear it
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+      }
     }
+
+    // ✅ Finished checking localStorage
+    setLoading(false);
   }, []);
 
   const login = (userData: User, authToken: string) => {
@@ -42,9 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         token,
+        loading,
         login,
         logout,
-        isAuthenticated: !!token && !!user
+        isAuthenticated: !!token && !!user,
       }}
     >
       {children}

@@ -4,7 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { loginUser } from "../../services/api";
 import "./Login.css";
 
-// Import images from assets folder
+
 import loginContainerImg from "../../assets/images/loginContainer.png";
 import autoPartsImg from "../../assets/images/img2.png";
 import mascotImg from "../../assets/images/Mascot.png";
@@ -21,7 +21,6 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Pre-fill demo credentials when switching tabs
   useEffect(() => {
     if (role === "admin") {
       setUsername("admin");
@@ -42,6 +41,7 @@ export default function Login() {
       const response = await loginUser(username, password);
       login(response.data.user, response.data.token);
       navigate("/dashboard");
+      
     } catch (err: any) {
       setError(
         err.response?.data?.message || "Login failed. Please try again.",
