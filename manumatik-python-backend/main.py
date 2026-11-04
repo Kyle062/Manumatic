@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers.reports import router as reports_router
+import app.routers.reports as reports_module
+import app.routers.scanner as scanner_module  # ✅ Add this
 
 app = FastAPI(title="Manumatik Analytics API")
 
@@ -12,9 +13,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(reports_router, prefix="/api/reports", tags=["Reports"])
-
+app.include_router(reports_module.router, prefix="/api/reports", tags=["Reports"])
+app.include_router(scanner_module.router, prefix="/api/scanner", tags=["Scanner"]) # ✅ Add this
 
 @app.get("/")
 def read_root():
-    return {"message": "Manumatik Python Analytics Backend is running!"}
+    return {"message": "Manumatik Python Backend is running!"}

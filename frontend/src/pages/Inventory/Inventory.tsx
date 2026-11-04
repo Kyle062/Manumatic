@@ -22,6 +22,7 @@ import {
   EyeOff,
   ArrowDownToLine,
   Printer,
+  Barcode,
 } from "lucide-react";
 import {
   getAllParts,
@@ -373,7 +374,6 @@ export default function Inventory() {
         await createPart(form);
         showToast(`"${form.name}" was added to the catalog.`, "success");
 
-        // ✅ Generate barcode on successful creation
         const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(form.part_number)}&name=${encodeURIComponent(form.name)}&price=${form.price}`;
         window.open(barcodeUrl, "_blank");
       }
@@ -506,7 +506,6 @@ export default function Inventory() {
           "success",
         );
 
-        // ✅ Generate barcode on successful creation (Stock Adjustment)
         const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(newPartNumber)}&name=${encodeURIComponent(newName)}&price=${newPrice.toFixed(2)}`;
         window.open(barcodeUrl, "_blank");
 
@@ -574,7 +573,6 @@ export default function Inventory() {
             "success",
           );
 
-          // ✅ Generate barcode on successful variant creation
           const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(newPartNumberStr)}&name=${encodeURIComponent(newNameStr)}&price=${(newCost * (1 + newMarkup / 100)).toFixed(2)}`;
           window.open(barcodeUrl, "_blank");
         } else {
@@ -1034,9 +1032,9 @@ export default function Inventory() {
                                     const url = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(part.part_number)}&name=${encodeURIComponent(part.name)}&price=${part.price}`;
                                     window.open(url, "_blank");
                                   }}
-                                  title="Print Barcode"
+                                  title="Show Barcode"
                                 >
-                                  <Printer size={14} />
+                                  <Barcode size={14} />
                                 </button>
                                 <button
                                   type="button"

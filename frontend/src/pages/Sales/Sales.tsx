@@ -14,14 +14,11 @@ import {
   Receipt as ReceiptIcon,
   Banknote,
   AlertTriangle,
+  Camera,
 } from "lucide-react";
 import { getAllParts, checkout } from "../../services/api";
 import { Part } from "../../types";
 import "./Sales.css";
-
-// ============================================================
-// TYPES
-// ============================================================
 
 interface CartItem {
   part: Part;
@@ -54,42 +51,67 @@ interface ReceiptData {
 
 const TAX_RATE = 0.12;
 
-// ============================================================
-// COMPONENT
-// ============================================================
-
 export default function Sales() {
   const { user } = useAuth();
 
-  // ---- Catalog data ----
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // ---- Search & filters ----
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
-  // ---- Cart ----
   const [cart, setCart] = useState<CartItem[]>([]);
 
-  // ---- Checkout modal ----
   const [showCheckout, setShowCheckout] = useState(false);
   const [cashTendered, setCashTendered] = useState("");
   const [processing, setProcessing] = useState(false);
   const [checkoutError, setCheckoutError] = useState("");
 
-  // ---- Receipt modal ----
   const [showReceipt, setShowReceipt] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
-  // ---- Toast ----
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // ---- Initial fetch ----
+  const [showScanner, setShowScanner] = useState(false);
+
   useEffect(() => {
     fetchParts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    if (showScanner) {
+      fetch("http://localhost:8000/api/scanner/start");
+
+      interval = setInterval(async () => {
+        try {
+          const res = await fetch("http://localhost:8000/api/scanner/poll");
+          const data = await res.json();
+
+          if (data.barcodes && data.barcodes.length > 0) {
+            data.barcodes.forEach((code: string) => {
+              const part = parts.find((p) => p.part_number === code);
+              if (part) {
+                addToCart(part);
+              } else {
+                showToast(`Barcode ${code} not found in database.`, "error");
+              }
+            });
+          }
+        } catch (err) {
+          console.error("Failed to poll scanner", err);
+        }
+      }, 1000);
+    } else {
+      fetch("http://localhost:8000/api/scanner/stop");
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (showScanner) fetch("http://localhost:8000/api/scanner/stop");
+    };
+  }, [showScanner, parts]);
 
   const fetchParts = async () => {
     setLoading(true);
@@ -107,10 +129,6 @@ export default function Sales() {
     setToast({ message, type });
   };
 
-  // ============================================================
-  // CART OPERATIONS
-  // ============================================================
-
   const addToCart = (part: Part) => {
     if (part.quantity <= 0) {
       showToast(`"${part.name}" is out of stock.`, "error");
@@ -118,22 +136,20 @@ export default function Sales() {
     }
 
     setCart((prev) => {
-      const existing = prev.find(
-        (item) => item.part.part_id === part.part_id
-      );
+      const existing = prev.find((item) => item.part.part_id === part.part_id);
 
       if (existing) {
         if (existing.quantity >= part.quantity) {
           showToast(
             `Only ${part.quantity} in stock for "${part.name}".`,
-            "error"
+            "error",
           );
           return prev;
         }
         return prev.map((item) =>
           item.part.part_id === part.part_id
             ? { ...item, quantity: item.quantity + 1 }
-            : item
+            : item,
         );
       }
 
@@ -158,9 +174,7 @@ export default function Sales() {
   };
 
   const removeFromCart = (partId: number) => {
-    setCart((prev) =>
-      prev.filter((item) => item.part.part_id !== partId)
-    );
+    setCart((prev) => prev.filter((item) => item.part.part_id !== partId));
   };
 
   const clearCart = () => {
@@ -169,17 +183,9 @@ export default function Sales() {
     setCart([]);
   };
 
-  // ============================================================
-  // TOTALS
-  // ============================================================
-
   const subtotal = useMemo(
-    () =>
-      cart.reduce(
-        (sum, item) => sum + item.part.price * item.quantity,
-        0
-      ),
-    [cart]
+    () => cart.reduce((sum, item) => sum + item.part.price * item.quantity, 0),
+    [cart],
   );
 
   const tax = useMemo(() => subtotal * TAX_RATE, [subtotal]);
@@ -190,10 +196,6 @@ export default function Sales() {
     const tendered = parseFloat(cashTendered) || 0;
     return tendered - total;
   }, [cashTendered, total]);
-
-  // ============================================================
-  // FILTERING
-  // ============================================================
 
   const categories = useMemo(() => {
     const set = new Set(parts.map((p) => p.category));
@@ -209,7 +211,7 @@ export default function Sales() {
         (p) =>
           p.name.toLowerCase().includes(q) ||
           p.part_number.toLowerCase().includes(q) ||
-          p.category.toLowerCase().includes(q)
+          p.category.toLowerCase().includes(q),
       );
     }
 
@@ -219,10 +221,6 @@ export default function Sales() {
 
     return list;
   }, [parts, search, categoryFilter]);
-
-  // ============================================================
-  // CHECKOUT
-  // ============================================================
 
   const openCheckout = () => {
     if (cart.length === 0) {
@@ -240,9 +238,7 @@ export default function Sales() {
     setCheckoutError("");
   };
 
-  const handleCheckoutSubmit = async (
-    e: FormEvent<HTMLFormElement>
-  ) => {
+  const handleCheckoutSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setCheckoutError("");
 
@@ -251,7 +247,7 @@ export default function Sales() {
       setCheckoutError(
         `Cash tendered must be at least ₱${total.toLocaleString("en-PH", {
           minimumFractionDigits: 2,
-        })}.`
+        })}.`,
       );
       return;
     }
@@ -298,16 +294,12 @@ export default function Sales() {
       showToast("Sale completed successfully.", "success");
     } catch (err: any) {
       setCheckoutError(
-        err.response?.data?.message || "Failed to process sale."
+        err.response?.data?.message || "Failed to process sale.",
       );
     } finally {
       setProcessing(false);
     }
   };
-
-  // ============================================================
-  // HELPERS
-  // ============================================================
 
   const money = (n: number) =>
     "₱" +
@@ -332,12 +324,7 @@ export default function Sales() {
     window.print();
   };
 
-  // Quick-cash buttons
   const quickCash = [50, 100, 200, 500, 1000];
-
-  // ============================================================
-  // RENDER
-  // ============================================================
 
   return (
     <div className="dashboard-layout">
@@ -347,9 +334,6 @@ export default function Sales() {
         <Header title="Point of Sale" />
 
         <div className="pos-layout">
-          {/* ============================================================
-              LEFT: PRODUCT LIST
-              ============================================================ */}
           <div className="pos-products">
             <div className="pos-toolbar">
               <div className="pos-search">
@@ -362,6 +346,15 @@ export default function Sales() {
                   className="pos-search__input"
                 />
               </div>
+
+              <button
+                type="button"
+                className="pos-camera-btn"
+                onClick={() => setShowScanner(true)}
+                title="Scan Barcode"
+              >
+                <Camera size={20} />
+              </button>
 
               <select
                 value={categoryFilter}
@@ -380,23 +373,18 @@ export default function Sales() {
               {loading ? (
                 <div className="pos-empty">Loading parts...</div>
               ) : filteredParts.length === 0 ? (
-                <div className="pos-empty">
-                  No parts match your search.
-                </div>
+                <div className="pos-empty">No parts match your search.</div>
               ) : (
                 filteredParts.map((part) => {
                   const outOfStock = part.quantity === 0;
                   const low =
-                    part.quantity > 0 &&
-                    part.quantity <= part.reorder_level;
+                    part.quantity > 0 && part.quantity <= part.reorder_level;
 
                   return (
                     <button
                       key={part.part_id}
                       type="button"
-                      className={`pos-card ${
-                        outOfStock ? "is-disabled" : ""
-                      }`}
+                      className={`pos-card ${outOfStock ? "is-disabled" : ""}`}
                       onClick={() => addToCart(part)}
                       disabled={outOfStock}
                     >
@@ -412,11 +400,7 @@ export default function Sales() {
                         </div>
                         <div
                           className={`pos-card__stock ${
-                            outOfStock
-                              ? "is-out"
-                              : low
-                              ? "is-low"
-                              : "is-in"
+                            outOfStock ? "is-out" : low ? "is-low" : "is-in"
                           }`}
                         >
                           {outOfStock
@@ -431,9 +415,6 @@ export default function Sales() {
             </div>
           </div>
 
-          {/* ============================================================
-              RIGHT: CART
-              ============================================================ */}
           <div className="pos-cart">
             <div className="pos-cart__header">
               <div className="pos-cart__title">
@@ -466,9 +447,7 @@ export default function Sales() {
                 cart.map((item) => (
                   <div className="cart-item" key={item.part.part_id}>
                     <div className="cart-item__info">
-                      <div className="cart-item__name">
-                        {item.part.name}
-                      </div>
+                      <div className="cart-item__name">{item.part.name}</div>
                       <div className="cart-item__meta">
                         {item.part.part_number} · {money(item.part.price)}
                       </div>
@@ -478,9 +457,7 @@ export default function Sales() {
                       <button
                         type="button"
                         className="qty-btn"
-                        onClick={() =>
-                          updateQuantity(item.part.part_id, -1)
-                        }
+                        onClick={() => updateQuantity(item.part.part_id, -1)}
                       >
                         <Minus size={12} />
                       </button>
@@ -488,9 +465,7 @@ export default function Sales() {
                       <button
                         type="button"
                         className="qty-btn"
-                        onClick={() =>
-                          updateQuantity(item.part.part_id, 1)
-                        }
+                        onClick={() => updateQuantity(item.part.part_id, 1)}
                         disabled={item.quantity >= item.part.quantity}
                       >
                         <Plus size={12} />
@@ -498,9 +473,7 @@ export default function Sales() {
                       <button
                         type="button"
                         className="remove-btn"
-                        onClick={() =>
-                          removeFromCart(item.part.part_id)
-                        }
+                        onClick={() => removeFromCart(item.part.part_id)}
                         title="Remove"
                       >
                         <Trash2 size={13} />
@@ -545,9 +518,6 @@ export default function Sales() {
         </div>
       </div>
 
-      {/* ============================================================
-          CHECKOUT MODAL
-          ============================================================ */}
       {showCheckout && (
         <div className="modal-overlay" onClick={closeCheckout}>
           <div
@@ -655,9 +625,7 @@ export default function Sales() {
                   className="btn-primary"
                   disabled={processing}
                 >
-                  {processing
-                    ? "Processing..."
-                    : `Confirm · ${money(total)}`}
+                  {processing ? "Processing..." : `Confirm · ${money(total)}`}
                 </button>
               </div>
             </form>
@@ -665,14 +633,8 @@ export default function Sales() {
         </div>
       )}
 
-      {/* ============================================================
-          RECEIPT MODAL
-          ============================================================ */}
       {showReceipt && receipt && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowReceipt(false)}
-        >
+        <div className="modal-overlay" onClick={() => setShowReceipt(false)}>
           <div
             className="modal modal--receipt"
             onClick={(e) => e.stopPropagation()}
@@ -681,9 +643,7 @@ export default function Sales() {
               <div className="receipt__header">
                 <h2>MANUMATIK</h2>
                 <p>Automotive Inventory & POS System</p>
-                <p className="receipt__address">
-                  Manumatik Auto Parts Center
-                </p>
+                <p className="receipt__address">Manumatik Auto Parts Center</p>
               </div>
 
               <div className="receipt__divider" />
@@ -722,9 +682,7 @@ export default function Sales() {
                   {receipt.items.map((item, idx) => (
                     <tr key={idx}>
                       <td>
-                        <div className="receipt__item-name">
-                          {item.name}
-                        </div>
+                        <div className="receipt__item-name">{item.name}</div>
                         <div className="receipt__item-meta">
                           {item.part_number}
                         </div>
@@ -797,7 +755,47 @@ export default function Sales() {
         </div>
       )}
 
-      {/* TOAST */}
+      {showScanner && (
+        <div className="modal-overlay" style={{ zIndex: 9999 }}>
+          <div
+            className="modal modal--scanner"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Scan Barcode</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowScanner(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="scanner-container">
+              <img
+                src="http://localhost:8000/api/scanner/video_feed"
+                alt="Barcode Scanner Feed"
+                className="scanner-video"
+              />
+              <p className="scanner-hint">
+                Align the barcode within the camera view
+              </p>
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowScanner(false)}
+              >
+                Close Camera
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <Toast
           message={toast.message}
