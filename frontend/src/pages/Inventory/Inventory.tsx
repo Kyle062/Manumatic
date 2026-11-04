@@ -37,18 +37,12 @@ import {
 import { Part } from "../../types";
 import "./Inventory.css";
 
-// ============================================================
-// TYPES
-// ============================================================
-
 type Tab = "catalog" | "adjustments" | "availability" | "settings";
 
-// Split sort types for individual columns
 type NameSort = "name-asc" | "name-desc";
 type PriceSort = "price-asc" | "price-desc" | "none";
 type StockSort = "qty-asc" | "qty-desc" | "low-first" | "none";
 
-// Combined type for Availability tab (keeps the old behavior)
 type SortOption =
   | "name-asc"
   | "name-desc"
@@ -90,35 +84,26 @@ const REASONS_OUT = [
   "Returned to supplier",
 ];
 
-// ============================================================
-// COMPONENT
-// ============================================================
-
 export default function Inventory() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
-  // ---- Tabs ----
   const [activeTab, setActiveTab] = useState<Tab>("catalog");
 
-  // ---- Catalog ----
   const [parts, setParts] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
-  // ✅ Split sort states
   const [nameSort, setNameSort] = useState<NameSort>("name-asc");
   const [priceSort, setPriceSort] = useState<PriceSort>("none");
   const [stockSort, setStockSort] = useState<StockSort>("none");
 
-  // ---- Part Modal ----
   const [showModal, setShowModal] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [saving, setSaving] = useState(false);
   const [modalError, setModalError] = useState("");
 
-  // ---- Receive Supply Modal ----
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [receiveTarget, setReceiveTarget] = useState<Part | null>(null);
   const [receiveForm, setReceiveForm] = useState({
@@ -131,14 +116,11 @@ export default function Inventory() {
   const [receiveSaving, setReceiveSaving] = useState(false);
   const [receiveError, setReceiveError] = useState("");
 
-  // ---- Delete ----
   const [confirmTarget, setConfirmTarget] = useState<Part | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // ---- Toast ----
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // ---- Part Form ----
   const [form, setForm] = useState({
     part_number: "",
     name: "",
@@ -153,7 +135,8 @@ export default function Inventory() {
     supplier: "",
   });
 
-  // ---- Stock Adjustment ----
+  const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
+
   const [adjMode, setAdjMode] = useState<"existing" | "new">("existing");
   const [adjPart, setAdjPart] = useState<number | "">("");
   const [adjType, setAdjType] = useState<"in" | "out">("in");
@@ -161,14 +144,13 @@ export default function Inventory() {
   const [adjReason, setAdjReason] = useState(REASONS_IN[0]);
   const [adjNotes, setAdjNotes] = useState("");
 
-  // Pricing fields for Stock In (now includes Name, Category, Supplier)
   const [adjName, setAdjName] = useState("");
   const [adjCategory, setAdjCategory] = useState("");
   const [adjCost, setAdjCost] = useState("");
   const [adjMarkup, setAdjMarkup] = useState("");
   const [adjSupplier, setAdjSupplier] = useState("");
+  const [adjIsAddingNewCategory, setAdjIsAddingNewCategory] = useState(false);
 
-  // New Part fields (for Create New mode)
   const [newPartNumber, setNewPartNumber] = useState("");
   const [newName, setNewName] = useState("");
   const [newCategory, setNewCategory] = useState("");
@@ -177,24 +159,20 @@ export default function Inventory() {
   const [adjSaving, setAdjSaving] = useState(false);
   const [adjError, setAdjError] = useState("");
 
-  // ---- Check Availability ----
   const [availSearch, setAvailSearch] = useState("");
   const [availSort, setAvailSort] = useState<SortOption>("name-asc");
   const [availFilter, setAvailFilter] = useState<StockFilter>("all");
   const [availCategory, setAvailCategory] = useState<string>("all");
 
-  // ---- Settings ----
   const [storeSettings, setStoreSettings] = useState({
     store_name: "Manumatik Auto Parts Center",
     tax_rate: "12",
     reorder_default: "10",
   });
 
-  // ---- Users ----
   const [users, setUsers] = useState<AppUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
 
-  // ---- Add User Modal ----
   const [showUserModal, setShowUserModal] = useState(false);
   const [userSaving, setUserSaving] = useState(false);
   const [userModalError, setUserModalError] = useState("");
@@ -206,7 +184,6 @@ export default function Inventory() {
     role: "manager" as "admin" | "manager",
   });
 
-  // ---- Reset Password Modal ----
   const [resetTarget, setResetTarget] = useState<AppUser | null>(null);
   const [resetAdminPassword, setResetAdminPassword] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
@@ -217,31 +194,28 @@ export default function Inventory() {
   const [resetSaving, setResetSaving] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  // ---- Toggle Active Confirm ----
   const [toggleTarget, setToggleTarget] = useState<AppUser | null>(null);
   const [togglingActive, setTogglingActive] = useState(false);
 
-  // ============================================================
-  // EFFECTS
-  // ============================================================
+  const existingCategories = useMemo(() => {
+    const set = new Set(parts.map((p) => p.category));
+    return Array.from(set).sort();
+  }, [parts]);
 
   useEffect(() => {
     fetchParts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (activeTab === "settings" && isAdmin) {
       fetchUsers();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, isAdmin]);
 
   useEffect(() => {
     setAdjReason(adjType === "in" ? REASONS_IN[0] : REASONS_OUT[0]);
   }, [adjType]);
 
-  // Populate ALL fields when the selected part changes in the adjustments tab
   useEffect(() => {
     if (adjMode === "existing" && adjPart) {
       const p = parts.find((x) => x.part_id === adjPart);
@@ -251,17 +225,33 @@ export default function Inventory() {
         setAdjCost(p.cost_price?.toString() || "0");
         setAdjMarkup(p.markup_percent?.toString() || "20");
         setAdjSupplier(p.supplier || "");
+        setAdjIsAddingNewCategory(false);
       }
-    } else {
+    } else if (adjMode === "existing") {
       setAdjName("");
       setAdjCategory("");
       setAdjCost("");
       setAdjMarkup("");
       setAdjSupplier("");
+      setAdjIsAddingNewCategory(false);
     }
   }, [adjPart, parts, adjMode]);
 
-  // Auto-calculate selling price in the Add/Edit form
+  useEffect(() => {
+    if (adjMode === "new") {
+      let maxNum = 0;
+      parts.forEach((p) => {
+        const match = p.part_number.match(/^NEW-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNum) maxNum = num;
+        }
+      });
+      const nextNum = String(maxNum + 1).padStart(3, "0");
+      setNewPartNumber(`NEW-${nextNum}`);
+    }
+  }, [adjMode, parts]);
+
   useEffect(() => {
     const cost = parseFloat(form.cost_price) || 0;
     const markup = parseFloat(form.markup_percent) || 0;
@@ -274,10 +264,6 @@ export default function Inventory() {
       setForm((prev) => ({ ...prev, price: calculatedPrice.toString() }));
     }
   }, [form.cost_price, form.markup_percent]);
-
-  // ============================================================
-  // FETCHERS
-  // ============================================================
 
   const fetchParts = async () => {
     setLoading(true);
@@ -308,10 +294,6 @@ export default function Inventory() {
     setToast({ message, type });
   };
 
-  // ============================================================
-  // SORTING LOGIC
-  // ============================================================
-
   const handleSortChange = (
     type: "name" | "price" | "stock",
     value: string,
@@ -331,10 +313,6 @@ export default function Inventory() {
     }
   };
 
-  // ============================================================
-  // PART CRUD
-  // ============================================================
-
   const openAddModal = () => {
     setEditingPart(null);
     setForm({
@@ -350,6 +328,7 @@ export default function Inventory() {
       location: "",
       supplier: "",
     });
+    setIsAddingNewCategory(false);
     setModalError("");
     setShowModal(true);
   };
@@ -369,6 +348,7 @@ export default function Inventory() {
       location: part.location || "",
       supplier: part.supplier || "",
     });
+    setIsAddingNewCategory(false);
     setModalError("");
     setShowModal(true);
   };
@@ -420,10 +400,6 @@ export default function Inventory() {
     }
   };
 
-  // ============================================================
-  // RECEIVE SUPPLY (FROM CATALOG ACTION BUTTON)
-  // ============================================================
-
   const openReceiveModal = (part: Part) => {
     setReceiveTarget(part);
     setReceiveForm({
@@ -466,10 +442,6 @@ export default function Inventory() {
     }
   };
 
-  // ============================================================
-  // STOCK ADJUSTMENT
-  // ============================================================
-
   const selectedPart = parts.find((p) => p.part_id === adjPart);
   const adjQtyNum = parseInt(adjQty) || 0;
 
@@ -484,7 +456,7 @@ export default function Inventory() {
 
     if (adjMode === "new") {
       if (!newPartNumber || !newName || !newCategory) {
-        setAdjError("Part Number, Name, and Category are required.");
+        setAdjError("Name and Category are required.");
         return;
       }
     }
@@ -529,15 +501,14 @@ export default function Inventory() {
           "success",
         );
         setAdjMode("existing");
-        setNewPartNumber("");
         setNewName("");
         setNewCategory("");
         setNewSupplier("");
+        setAdjIsAddingNewCategory(false);
       } else if (adjType === "in" && selectedPart) {
         const newCost = parseFloat(adjCost) || 0;
         const newMarkup = parseFloat(adjMarkup) || 0;
 
-        // ✅ 1.5 Detect Changes across all relevant fields
         const isCostChanged = Number(selectedPart.cost_price) !== newCost;
         const isMarkupChanged =
           Number(selectedPart.markup_percent) !== newMarkup;
@@ -553,11 +524,8 @@ export default function Inventory() {
           isNameChanged;
 
         if (hasChanged) {
-          // ✅ 1.1, 1.3, 1.4 Professional Clone Logic
-          // Extract base part number (remove any existing -V1, -V2, etc.)
           const basePartNumber = selectedPart.part_number.split("-V")[0];
 
-          // Find how many variants of this base part already exist to generate the next number
           const existingVariants = parts.filter((p) =>
             p.part_number.startsWith(basePartNumber + "-V"),
           );
@@ -575,14 +543,13 @@ export default function Inventory() {
 
           const newPartNumberStr = `${basePartNumber}-V${nextVersionNum}`;
 
-          // ✅ 1.4 Extract base name (remove any existing (v1), (v2), etc.) and append the new version number
           const baseName = selectedPart.name.replace(/\s*\(v\d+\)$/, "");
           const newNameStr = `${baseName} (v${nextVersionNum})`;
 
           await createPart({
             part_number: newPartNumberStr,
-            name: newNameStr, // Use the new modified name
-            category: adjCategory, // Use the new modified category
+            name: newNameStr,
+            category: adjCategory,
             description: selectedPart.description || "",
             price: (newCost * (1 + newMarkup / 100)).toString(),
             cost_price: newCost.toString(),
@@ -590,14 +557,13 @@ export default function Inventory() {
             reorder_level: selectedPart.reorder_level.toString(),
             quantity: adjQtyNum.toString(),
             location: selectedPart.location || "",
-            supplier: adjSupplier, // Use the new modified supplier
+            supplier: adjSupplier,
           });
           showToast(
             `Details changed. Created new variant: "${newNameStr}".`,
             "success",
           );
         } else {
-          // ✅ 1.2 No changes detected, just add stock to existing
           await receiveStock({
             part_id: selectedPart.part_id,
             quantity: adjQtyNum,
@@ -611,7 +577,6 @@ export default function Inventory() {
           );
         }
       } else if (selectedPart) {
-        // STOCK OUT LOGIC
         await adjustStock({
           part_id: selectedPart.part_id,
           type: adjType,
@@ -634,10 +599,6 @@ export default function Inventory() {
       setAdjSaving(false);
     }
   };
-
-  // ============================================================
-  // AVAILABILITY — Memoized
-  // ============================================================
 
   const categories = useMemo(() => {
     const set = new Set(parts.map((p) => p.category));
@@ -703,10 +664,6 @@ export default function Inventory() {
     (p) => p.quantity <= p.reorder_level,
   ).length;
 
-  // ============================================================
-  // USER MANAGEMENT
-  // ============================================================
-
   const openAddUserModal = () => {
     setUserForm({
       username: "",
@@ -743,7 +700,6 @@ export default function Inventory() {
     }
   };
 
-  // ---- Reset Password flow ----
   const openResetPasswordModal = (u: AppUser) => {
     setResetTarget(u);
     setResetAdminPassword("");
@@ -803,7 +759,6 @@ export default function Inventory() {
     }
   };
 
-  // ---- Toggle Active flow ----
   const requestToggleActive = (u: AppUser) => setToggleTarget(u);
   const cancelToggleActive = () => !togglingActive && setToggleTarget(null);
 
@@ -831,10 +786,6 @@ export default function Inventory() {
       setTogglingActive(false);
     }
   };
-
-  // ============================================================
-  // HELPERS
-  // ============================================================
 
   const filtered = useMemo(() => {
     let list = parts.filter((p) => {
@@ -900,10 +851,6 @@ export default function Inventory() {
     });
   };
 
-  // ============================================================
-  // RENDER
-  // ============================================================
-
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -912,7 +859,6 @@ export default function Inventory() {
         <Header title="Inventory" />
 
         <div className="inv-content">
-          {/* TABS */}
           <div className="inv-tabs">
             {(
               [
@@ -933,9 +879,6 @@ export default function Inventory() {
             ))}
           </div>
 
-          {/* ============================================================
-              TAB: PARTS CATALOG
-              ============================================================ */}
           {activeTab === "catalog" && (
             <>
               <div className="inv-toolbar">
@@ -950,9 +893,7 @@ export default function Inventory() {
                   />
                 </div>
 
-                {/* ✅ 3 Separate Sort Pills */}
                 <div className="inv-sort-group">
-                  {/* Name Sort */}
                   <div className="inv-sort-pill">
                     <span className="inv-sort-label">Name</span>
                     <select
@@ -965,7 +906,6 @@ export default function Inventory() {
                     </select>
                   </div>
 
-                  {/* Price Sort */}
                   <div className="inv-sort-pill">
                     <span className="inv-sort-label">Price</span>
                     <select
@@ -981,7 +921,6 @@ export default function Inventory() {
                     </select>
                   </div>
 
-                  {/* Stock Sort */}
                   <div className="inv-sort-pill">
                     <span className="inv-sort-label">Stock</span>
                     <select
@@ -1104,9 +1043,6 @@ export default function Inventory() {
             </>
           )}
 
-          {/* ============================================================
-              TAB: STOCK ADJUSTMENTS
-              ============================================================ */}
           {activeTab === "adjustments" && (
             <div className="adj-layout adj-layout--centered">
               <div className="adj-form-card">
@@ -1138,7 +1074,7 @@ export default function Inventory() {
                       color: adjMode === "new" ? "#fff" : "",
                     }}
                   >
-                    Create New Part
+                    Add New Part
                   </button>
                 </div>
 
@@ -1169,13 +1105,17 @@ export default function Inventory() {
                     <>
                       <div className="form-row">
                         <div className="adj-group">
-                          <label>Part Number *</label>
+                          <label>Part Number (Auto)</label>
                           <input
                             type="text"
                             value={newPartNumber}
-                            onChange={(e) => setNewPartNumber(e.target.value)}
+                            readOnly
+                            disabled
                             className="adj-input"
-                            required
+                            style={{
+                              backgroundColor: "#f9fafb",
+                              color: "#6b7280",
+                            }}
                           />
                         </div>
                         <div className="adj-group">
@@ -1192,13 +1132,43 @@ export default function Inventory() {
                       <div className="form-row">
                         <div className="adj-group">
                           <label>Category *</label>
-                          <input
-                            type="text"
-                            value={newCategory}
-                            onChange={(e) => setNewCategory(e.target.value)}
-                            className="adj-input"
-                            required
-                          />
+                          <select
+                            value={
+                              adjIsAddingNewCategory ? "___new___" : newCategory
+                            }
+                            onChange={(e) => {
+                              if (e.target.value === "___new___") {
+                                setAdjIsAddingNewCategory(true);
+                                setNewCategory("");
+                              } else {
+                                setAdjIsAddingNewCategory(false);
+                                setNewCategory(e.target.value);
+                              }
+                            }}
+                            className="adj-select"
+                            required={!adjIsAddingNewCategory}
+                          >
+                            <option value="">— Select Category —</option>
+                            {existingCategories.map((c) => (
+                              <option key={c} value={c}>
+                                {c}
+                              </option>
+                            ))}
+                            <option value="___new___">
+                              + Add New Category
+                            </option>
+                          </select>
+                          {adjIsAddingNewCategory && (
+                            <input
+                              type="text"
+                              placeholder="Type new category name"
+                              value={newCategory}
+                              onChange={(e) => setNewCategory(e.target.value)}
+                              className="adj-input"
+                              style={{ marginTop: "6px" }}
+                              required
+                            />
+                          )}
                         </div>
                         <div className="adj-group">
                           <label>Supplier</label>
@@ -1251,7 +1221,6 @@ export default function Inventory() {
                     />
                   </div>
 
-                  {/* ✅ Added editable fields for Name, Category, Supplier to detect changes */}
                   {adjType === "in" &&
                     adjMode === "existing" &&
                     selectedPart && (
@@ -1268,12 +1237,43 @@ export default function Inventory() {
                           </div>
                           <div className="adj-group">
                             <label>Category</label>
-                            <input
-                              type="text"
-                              value={adjCategory}
-                              onChange={(e) => setAdjCategory(e.target.value)}
-                              className="adj-input"
-                            />
+                            <select
+                              value={
+                                adjIsAddingNewCategory
+                                  ? "___new___"
+                                  : adjCategory
+                              }
+                              onChange={(e) => {
+                                if (e.target.value === "___new___") {
+                                  setAdjIsAddingNewCategory(true);
+                                  setAdjCategory("");
+                                } else {
+                                  setAdjIsAddingNewCategory(false);
+                                  setAdjCategory(e.target.value);
+                                }
+                              }}
+                              className="adj-select"
+                            >
+                              <option value="">— Select Category —</option>
+                              {existingCategories.map((c) => (
+                                <option key={c} value={c}>
+                                  {c}
+                                </option>
+                              ))}
+                              <option value="___new___">
+                                + Add New Category
+                              </option>
+                            </select>
+                            {adjIsAddingNewCategory && (
+                              <input
+                                type="text"
+                                placeholder="Type new category name"
+                                value={adjCategory}
+                                onChange={(e) => setAdjCategory(e.target.value)}
+                                className="adj-input"
+                                style={{ marginTop: "6px" }}
+                              />
+                            )}
                           </div>
                         </div>
                         <div className="form-row">
@@ -1430,9 +1430,6 @@ export default function Inventory() {
             </div>
           )}
 
-          {/* ============================================================
-              TAB: CHECK AVAILABILITY
-              ============================================================ */}
           {activeTab === "availability" && (
             <div className="avail-layout">
               {lowStockCount > 0 && (
@@ -1552,9 +1549,6 @@ export default function Inventory() {
             </div>
           )}
 
-          {/* ============================================================
-              TAB: SETTINGS
-              ============================================================ */}
           {activeTab === "settings" && (
             <div className="settings-layout">
               <div className="settings-card">
@@ -1689,7 +1683,6 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* ================= ADD / EDIT PART MODAL ================= */}
       {showModal && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -1738,14 +1731,40 @@ export default function Inventory() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Category *</label>
-                  <input
-                    type="text"
-                    value={form.category}
-                    onChange={(e) =>
-                      setForm({ ...form, category: e.target.value })
-                    }
-                    required
-                  />
+                  <select
+                    value={isAddingNewCategory ? "___new___" : form.category}
+                    onChange={(e) => {
+                      if (e.target.value === "___new___") {
+                        setIsAddingNewCategory(true);
+                        setForm({ ...form, category: "" });
+                      } else {
+                        setIsAddingNewCategory(false);
+                        setForm({ ...form, category: e.target.value });
+                      }
+                    }}
+                    className="adj-select"
+                    required={!isAddingNewCategory}
+                  >
+                    <option value="">— Select Category —</option>
+                    {existingCategories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                    <option value="___new___">+ Add New Category</option>
+                  </select>
+                  {isAddingNewCategory && (
+                    <input
+                      type="text"
+                      placeholder="Type new category name"
+                      value={form.category}
+                      onChange={(e) =>
+                        setForm({ ...form, category: e.target.value })
+                      }
+                      style={{ marginTop: "6px" }}
+                      required
+                    />
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Supplier</label>
@@ -1788,7 +1807,6 @@ export default function Inventory() {
               </div>
 
               <div className="form-row">
-                {/* ✅ Replaced manual Selling Price input with a read-only calculated field */}
                 <div className="form-group">
                   <label>Selling Price (₱) *</label>
                   <input
@@ -1876,7 +1894,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* ================= RECEIVE SUPPLY MODAL ================= */}
       {showReceiveModal && receiveTarget && (
         <div
           className="modal-overlay"
@@ -2035,7 +2052,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* ================= ADD USER MODAL ================= */}
       {showUserModal && isAdmin && (
         <div className="modal-overlay" onClick={closeUserModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -2153,7 +2169,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* ================= RESET PASSWORD MODAL ================= */}
       {resetTarget && (
         <div className="modal-overlay" onClick={closeResetPasswordModal}>
           <div
@@ -2291,7 +2306,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* ================= DELETE PART CONFIRM ================= */}
       {confirmTarget && (
         <ConfirmDialog
           title="Delete this part?"
@@ -2305,7 +2319,6 @@ export default function Inventory() {
         />
       )}
 
-      {/* ================= TOGGLE ACTIVE CONFIRM ================= */}
       {toggleTarget && (
         <ConfirmDialog
           title={
@@ -2325,7 +2338,6 @@ export default function Inventory() {
         />
       )}
 
-      {/* TOAST */}
       {toast && (
         <Toast
           message={toast.message}
