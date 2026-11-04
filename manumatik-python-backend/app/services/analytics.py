@@ -1,9 +1,12 @@
 import pandas as pd
+from datetime import datetime
+import pytz
 from app.database import engine
 
 
 def get_sales_overview_analytics(range_type: str):
-    today = pd.Timestamp.now()
+    manila_tz = pytz.timezone("Asia/Manila")
+    today = datetime.now(manila_tz)
 
     if range_type == "today":
         date_filter = f"DATE(s.sale_date) = '{today.strftime('%Y-%m-%d')}'"
@@ -105,15 +108,22 @@ def get_top_movers_analytics(limit: int):
             conn,
         )
 
-    top_df = (
-        sales_df.groupby(["part_id", "part_number", "name", "category"])
-        .agg(units_sold=("quantity", "sum"), revenue=("total_price", "sum"))
-        .reset_index()
-        .sort_values(by="units_sold", ascending=False)
-        .head(limit)
-    )
+    if not sales_df.empty:
+        top_df = (
+            sales_df.groupby(["part_id", "part_number", "name", "category"])
+            .agg(units_sold=("quantity", "sum"), revenue=("total_price", "sum"))
+            .reset_index()
+            .sort_values(by="units_sold", ascending=False)
+            .head(limit)
+        )
+        top_list = top_df.to_dict(orient="records")
+    else:
+        top_list = []
 
-    merged = pd.merge(parts_df, sales_df, on="part_id", how="left").fillna(0)
+    merged = pd.merge(parts_df, sales_df, on="part_id", how="left", suffixes=("", "_sold"))
+    
+    merged["quantity"] = merged["quantity"].fillna(0)
+    
     slow_df = (
         merged.groupby(["part_id", "part_number", "name", "category", "current_stock"])
         .agg(units_sold=("quantity", "sum"))
@@ -121,8 +131,6 @@ def get_top_movers_analytics(limit: int):
         .sort_values(by=["units_sold", "current_stock"], ascending=[True, False])
         .head(limit)
     )
-
-    top_list = top_df.to_dict(orient="records")
     slow_list = slow_df.to_dict(orient="records")
 
     for item in top_list:
