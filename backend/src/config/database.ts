@@ -1,10 +1,6 @@
 import mysql from "mysql2/promise";
 import { env } from "./env";
 
-// ============================================================
-// MYSQL CONNECTION POOL
-// ============================================================
-
 const pool = mysql.createPool({
   host: env.DB_HOST,
   port: env.DB_PORT,
@@ -18,30 +14,16 @@ const pool = mysql.createPool({
   dateStrings: false,
 });
 
-// ============================================================
-// FORCE TIMEZONE ON EVERY NEW CONNECTION
-// ============================================================
-// Without this, only the first connection from the pool gets
-// the +08:00 timezone. Subsequent connections use the OS
-// timezone (usually UTC), causing date shifts.
-// ============================================================
-
 pool.on("connection", (connection) => {
   connection.query("SET time_zone = '+08:00'");
 });
-
-// ============================================================
-// TEST CONNECTION
-// ============================================================
 
 export const testConnection = async (): Promise<void> => {
   try {
     const connection = await pool.getConnection();
 
-    // Ensure test connection also uses Manila time
     await connection.query("SET time_zone = '+08:00'");
 
-    // Verify
     const [rows] = await connection.query(
       "SELECT NOW() AS now, CURDATE() AS today, @@session.time_zone AS tz",
     );
