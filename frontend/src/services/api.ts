@@ -3,7 +3,10 @@ import { User, Part, Sale, DashboardStats, LoginResponse } from "../types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const PYTHON_API_URL =
+  import.meta.env.VITE_PYTHON_API_URL || "http://localhost:8000/api";
 
+// Standard Node.js API (Auth, Inventory, Sales)
 const api = axios.create({
   baseURL: API_URL,
   headers: {
@@ -11,15 +14,26 @@ const api = axios.create({
   },
 });
 
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
+// Python Analytics API (Reports only)
+const pythonApi = axios.create({
+  baseURL: PYTHON_API_URL,
+  headers: {
+    "Content-Type": "application/json",
   },
-  (error) => Promise.reject(error),
+});
+
+// Attach JWT token to BOTH instances
+const attachToken = (config: any) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+};
+
+api.interceptors.request.use(attachToken, (error) => Promise.reject(error));
+pythonApi.interceptors.request.use(attachToken, (error) =>
+  Promise.reject(error),
 );
 
 api.interceptors.response.use(
@@ -31,6 +45,23 @@ api.interceptors.response.use(
     if (status === 401 || status === 403) {
       console.warn(
         `Auth error on ${url} (${status}):`,
+        error.response?.data?.message || "No message",
+      );
+    }
+
+    return Promise.reject(error);
+  },
+);
+
+pythonApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const url = error.config?.url || "";
+
+    if (status === 401 || status === 403) {
+      console.warn(
+        `Auth error on Python API ${url} (${status}):`,
         error.response?.data?.message || "No message",
       );
     }
@@ -346,12 +377,16 @@ export const checkout = async (data: {
   return api.post("/inventory/checkout", data);
 };
 
+// ============================================================
+// REPORTS (Switched to Python API)
+// ============================================================
+
 export const getSalesOverview = async (range: string = "today") => {
   if (USE_MOCK) {
     await delay(300);
     return { data: {} };
   }
-  return api.get(`/reports/sales-overview?range=${range}`);
+  return pythonApi.get(`/reports/sales-overview?range=${range}`);
 };
 
 export const getInventoryValuation = async () => {
@@ -367,7 +402,7 @@ export const getTopMovers = async (limit: number = 5) => {
     await delay(300);
     return { data: { top: [], slow: [] } };
   }
-  return api.get(`/reports/top-movers?limit=${limit}`);
+  return pythonApi.get(`/reports/top-movers?limit=${limit}`);
 };
 
 export const getReorderPriority = async () => {
