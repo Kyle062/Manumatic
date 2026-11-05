@@ -88,7 +88,6 @@
   box-shadow: 0 0 0 3px rgba(15, 107, 92, 0.1);
 }
 
-/* ✅ NEW CAMERA BUTTON */
 .pos-camera-btn {
   display: inline-flex;
   align-items: center;
@@ -775,6 +774,36 @@
 .modal--scanner {
   max-width: 700px;
   width: 100%;
+}
+
+.scanner-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 0 20px;
+  background: #000;
+}
+
+.scanner-controls label {
+  color: #e5e7eb;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scanner-select {
+  flex: 1;
+  padding: 8px 12px;
+  background: #1f2937;
+  color: #ffffff;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.scanner-select:focus {
+  border-color: #0f6b5c;
 }
 
 .scanner-container {

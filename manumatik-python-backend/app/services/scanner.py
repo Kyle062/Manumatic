@@ -2,31 +2,44 @@ import cv2
 import numpy as np
 import threading
 import time
-from typing import Optional, Any
+from typing import Optional, List, Dict
 from pyzbar.pyzbar import decode
 
 class BarcodeScanner:
     def __init__(self) -> None:
-        # ✅ FIX: Tell Python this can be None or a VideoCapture object
         self.cap: Optional[cv2.VideoCapture] = None
         self.is_running: bool = False
-        self.detected_barcodes: list[str] = []
+        self.detected_barcodes: List[str] = []
         self.lock = threading.Lock()
         self.latest_frame: Optional[bytes] = None
-
-        self.visible_barcodes: dict[str, int] = {}
+        self.visible_barcodes: Dict[str, int] = {}
         self.MISS_LIMIT = 5
 
-    def start(self) -> None:
-        if self.is_running:
-            return
+    def get_available_cameras(self) -> List[Dict[str, str]]:
+        available_cameras = []
+        for i in range(5):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                available_cameras.append({
+                    "id": str(i),
+                    "name": f"Camera {i} {'(Default)' if i == 0 else '(External)'}"
+                })
+                cap.release()
+        return available_cameras
 
-        self.cap = cv2.VideoCapture(0)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+    def start(self, camera_id: int = 0) -> None:
+        if self.is_running:
+            self.stop()
+            time.sleep(1) # Wait for camera to release
+
+        self.cap = cv2.VideoCapture(camera_id, cv2.CAP_DSHOW) # Force DirectShow for Windows
+        # ✅ Reduced to 1080p to stop the system from lagging
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
         if not self.cap.isOpened():
-            print("Cannot connect to camera!")
+            print(f"Cannot connect to camera {camera_id}!")
+            self.cap = None
             return
 
         self.is_running = True
@@ -35,27 +48,26 @@ class BarcodeScanner:
 
     def stop(self) -> None:
         self.is_running = False
-        if self.cap:
+        if self.cap is not None:
             self.cap.release()
             self.cap = None
         self.visible_barcodes.clear()
         self.latest_frame = None
 
-    def get_new_barcodes(self) -> list[str]:
+    def get_new_barcodes(self) -> List[str]:
         with self.lock:
             codes = self.detected_barcodes.copy()
             self.detected_barcodes.clear()
             return codes
 
     def _scan_loop(self) -> None:
-        # ✅ FIX: Safely check if self.cap exists before checking isOpened()
         while self.is_running and self.cap is not None and self.cap.isOpened():
             success, frame = self.cap.read()
             if not success:
+                time.sleep(0.1)
                 continue
 
             current_barcodes = {}
-
             full_results = decode(frame)
 
             for barcode in full_results:
@@ -64,17 +76,8 @@ class BarcodeScanner:
 
             for code, rect in current_barcodes.items():
                 x, y, w, h = rect
-
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-                cv2.putText(
-                    frame,
-                    code,
-                    (x, max(y - 10, 20)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.8,
-                    (0, 255, 0),
-                    2,
-                )
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 4)
+                cv2.putText(frame, code, (x, max(y - 15, 30)), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 3)
 
                 if code not in self.visible_barcodes:
                     with self.lock:
@@ -88,10 +91,12 @@ class BarcodeScanner:
                     if self.visible_barcodes[code] > self.MISS_LIMIT:
                         del self.visible_barcodes[code]
 
-            ret, buffer = cv2.imencode(".jpg", frame)
+            # Resize to 720p for streaming to React
+            stream_frame = cv2.resize(frame, (1280, 720))
+            ret, buffer = cv2.imencode(".jpg", stream_frame)
             if ret:
                 self.latest_frame = buffer.tobytes()
 
-            time.sleep(0.03)
+            time.sleep(0.04) # Slight delay to prevent CPU max-out
 
 scanner = BarcodeScanner()

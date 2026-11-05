@@ -73,6 +73,10 @@ export default function Sales() {
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const [showScanner, setShowScanner] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>("0");
 
   useEffect(() => {
     fetchParts();
@@ -82,7 +86,18 @@ export default function Sales() {
     let interval: ReturnType<typeof setInterval>;
 
     if (showScanner) {
-      fetch("http://localhost:8000/api/scanner/start");
+      fetch("http://localhost:8000/api/scanner/cameras")
+        .then((res) => res.json())
+        .then((data) => {
+          setAvailableCameras(data);
+          if (data.length > 0 && !selectedCamera) {
+            setSelectedCamera(data[0].id);
+          }
+        });
+
+      fetch(
+        `http://localhost:8000/api/scanner/start?camera_id=${selectedCamera}`,
+      );
 
       interval = setInterval(async () => {
         try {
@@ -111,7 +126,7 @@ export default function Sales() {
       clearInterval(interval);
       if (showScanner) fetch("http://localhost:8000/api/scanner/stop");
     };
-  }, [showScanner, parts]);
+  }, [showScanner, parts, selectedCamera]);
 
   const fetchParts = async () => {
     setLoading(true);
@@ -772,9 +787,24 @@ export default function Sales() {
               </button>
             </div>
 
+            <div className="scanner-controls">
+              <label>Select Camera:</label>
+              <select
+                value={selectedCamera}
+                onChange={(e) => setSelectedCamera(e.target.value)}
+                className="scanner-select"
+              >
+                {availableCameras.map((cam) => (
+                  <option key={cam.id} value={cam.id}>
+                    {cam.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="scanner-container">
               <img
-                src="http://localhost:8000/api/scanner/video_feed"
+                src={`http://localhost:8000/api/scanner/video_feed?t=${Date.now()}`}
                 alt="Barcode Scanner Feed"
                 className="scanner-video"
               />

@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import StreamingResponse
 from app.services.scanner import scanner
+from typing import List, Dict
+import time
 
 router = APIRouter()
 
@@ -10,13 +12,16 @@ def generate_frames():
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + scanner.latest_frame + b'\r\n')
         else:
-            # Send a blank frame if camera is starting
-            pass
+            time.sleep(0.1)
+
+@router.get("/cameras")
+def get_cameras() -> List[Dict[str, str]]:
+    return scanner.get_available_cameras()
 
 @router.get("/start")
-def start_scanner():
-    scanner.start()
-    return {"message": "Camera started"}
+def start_scanner(camera_id: int = Query(0)):
+    scanner.start(camera_id)
+    return {"message": f"Camera {camera_id} started"}
 
 @router.get("/stop")
 def stop_scanner():
@@ -28,6 +33,6 @@ def video_feed():
     return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
 @router.get("/poll")
-def poll_barcodes():
+def barcodes():
     codes = scanner.get_new_barcodes()
     return {"barcodes": codes}
