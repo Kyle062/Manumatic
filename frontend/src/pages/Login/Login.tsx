@@ -38,7 +38,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await loginUser(username, password);
+      const response = await loginUser(username, password, role);
       login(response.data.user, response.data.token);
       navigate("/dashboard");
       
