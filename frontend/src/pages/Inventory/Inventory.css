@@ -1284,3 +1284,44 @@ textarea.adj-input {
     min-width: 150px;
   }
 }
+/* ============================================================
+   PRINT / EXPORT TOOLBAR ACTIONS
+   ============================================================ */
+
+.inv-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.inv-add-btn--ghost {
+  background: #ffffff;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.inv-add-btn--ghost:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+@media (max-width: 1024px) {
+  .inv-toolbar-actions {
+    width: 100%;
+    margin-top: 10px;
+  }
+  .inv-toolbar-actions .inv-add-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .inv-toolbar-actions {
+    flex-direction: column;
+  }
+  .inv-toolbar-actions .inv-add-btn {
+    width: 100%;
+  }
+}
