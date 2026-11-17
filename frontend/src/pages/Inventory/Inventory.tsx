@@ -200,7 +200,7 @@ export default function Inventory() {
   const [toggleTarget, setToggleTarget] = useState<AppUser | null>(null);
   const [togglingActive, setTogglingActive] = useState(false);
 
-  // NEW: Print / PDF state
+  // Print / PDF state
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printOptions, setPrintOptions] = useState({
     includeSupplier: true,
@@ -850,8 +850,21 @@ export default function Inventory() {
     return list;
   }, [parts, search, nameSort, priceSort, stockSort]);
 
+  // Native browser Intl formatting for UI
   const money = (n: number) =>
-    "₱" + n.toLocaleString("en-PH", { minimumFractionDigits: 2 });
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
+    }).format(n);
+
+  // Same Intl formatter for Print/PDF
+  const formatPeso = (n: number) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
+    }).format(n);
 
   const getCategoryClass = (category: string) => {
     const c = category.toLowerCase();
@@ -875,7 +888,7 @@ export default function Inventory() {
     });
   };
 
-  // NEW: Build print HTML
+  // Build print HTML with UTF-8 charset
   const buildPrintHTML = () => {
     const rows = filtered
       .map(
@@ -885,7 +898,7 @@ export default function Inventory() {
           <td>${p.name}</td>
           ${printOptions.includeSupplier ? `<td>${p.supplier || "-"}</td>` : ""}
           ${printOptions.includeCategory ? `<td>${p.category}</td>` : ""}
-          ${printOptions.includePrice ? `<td style="text-align:right">${money(p.price)}</td>` : ""}
+          ${printOptions.includePrice ? `<td style="text-align:right">${formatPeso(p.price)}</td>` : ""}
           ${printOptions.includeStock ? `<td style="text-align:right">${p.quantity}</td>` : ""}
           ${printOptions.includeReorder ? `<td style="text-align:right">${p.reorder_level}</td>` : ""}
         </tr>`,
@@ -907,6 +920,7 @@ export default function Inventory() {
     return `<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8" />
   <title>Parts Catalog - ${new Date().toLocaleDateString()}</title>
   <style>
     * { box-sizing: border-box; }
@@ -938,6 +952,7 @@ export default function Inventory() {
       showToast("Please allow pop-ups to print.", "error");
       return;
     }
+    win.document.open();
     win.document.write(buildPrintHTML());
     win.document.close();
     win.focus();
@@ -985,7 +1000,7 @@ export default function Inventory() {
         p.name,
         ...(printOptions.includeSupplier ? [p.supplier || "-"] : []),
         ...(printOptions.includeCategory ? [p.category] : []),
-        ...(printOptions.includePrice ? [money(p.price)] : []),
+        ...(printOptions.includePrice ? [formatPeso(p.price)] : []),
         ...(printOptions.includeStock ? [String(p.quantity)] : []),
         ...(printOptions.includeReorder ? [String(p.reorder_level)] : []),
       ]);
@@ -2469,7 +2484,7 @@ export default function Inventory() {
                     onChange={(e) => setResetConfirmPassword(e.target.value)}
                     required
                     minLength={6}
-                    placeholder="Re-enter new password"
+                    placeholder="Confirm new password"
                     autoComplete="new-password"
                   />
                   <button
@@ -2511,7 +2526,63 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* NEW: Print / Export PDF Modal */}
+      {toggleTarget && (
+        <div className="modal-overlay" onClick={cancelToggleActive}>
+          <div
+            className="modal modal--small"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>
+                {toggleTarget.is_active === 1 ? "Disable" : "Enable"} user
+              </h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={cancelToggleActive}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-form">
+              <div className="reset-context">
+                Are you sure you want to{" "}
+                {toggleTarget.is_active === 1 ? "disable" : "enable"}{" "}
+                <strong>{toggleTarget.name}</strong> (@
+                {toggleTarget.username})?
+                {toggleTarget.is_active === 1 && (
+                  <> They will no longer be able to log in.</>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={cancelToggleActive}
+                  disabled={togglingActive}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={confirmToggleActive}
+                  disabled={togglingActive}
+                >
+                  {togglingActive
+                    ? "Processing..."
+                    : toggleTarget.is_active === 1
+                      ? "Disable user"
+                      : "Enable user"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showPrintModal && (
         <div className="modal-overlay" onClick={() => setShowPrintModal(false)}>
           <div
@@ -2531,57 +2602,85 @@ export default function Inventory() {
 
             <div className="modal-form">
               <div className="reset-context">
-                {filtered.length} part(s) will be included (respects current
-                search &amp; sort).
+                Choose which columns to include in the printed/exported
+                document. Only the currently filtered and sorted rows will be
+                printed.
               </div>
 
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: "10px" }}
-              >
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 600,
-                    color: "#374151",
-                  }}
-                >
-                  Columns to include
+              <div className="form-group">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeSupplier}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeSupplier: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Supplier
                 </label>
-
-                {(
-                  [
-                    ["includeSupplier", "Supplier"],
-                    ["includeCategory", "Category"],
-                    ["includePrice", "Price"],
-                    ["includeStock", "Stock"],
-                    ["includeReorder", "Reorder Level"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label
-                    key={key}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      fontSize: "13px",
-                      color: "#1f2937",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={printOptions[key]}
-                      onChange={(e) =>
-                        setPrintOptions({
-                          ...printOptions,
-                          [key]: e.target.checked,
-                        })
-                      }
-                      style={{ width: "15px", height: "15px" }}
-                    />
-                    {label}
-                  </label>
-                ))}
+              </div>
+              <div className="form-group">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeCategory}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeCategory: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Category
+                </label>
+              </div>
+              <div className="form-group">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includePrice}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includePrice: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Price
+                </label>
+              </div>
+              <div className="form-group">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeStock}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeStock: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Stock
+                </label>
+              </div>
+              <div className="form-group">
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeReorder}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeReorder: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Reorder At
+                </label>
               </div>
 
               <div className="modal-actions">
@@ -2589,35 +2688,22 @@ export default function Inventory() {
                   type="button"
                   className="btn-secondary"
                   onClick={() => setShowPrintModal(false)}
-                  disabled={pdfGenerating}
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
-                  className="btn-secondary"
+                  className="btn-primary"
                   onClick={handlePrint}
-                  disabled={pdfGenerating || filtered.length === 0}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}
                 >
-                  <Printer size={14} /> Print
+                  Print
                 </button>
                 <button
                   type="button"
                   className="btn-primary"
                   onClick={handleExportPDF}
-                  disabled={pdfGenerating || filtered.length === 0}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}
+                  disabled={pdfGenerating}
                 >
-                  <FileDown size={14} />
                   {pdfGenerating ? "Generating..." : "Export PDF"}
                 </button>
               </div>
@@ -2626,43 +2712,22 @@ export default function Inventory() {
         </div>
       )}
 
-      {confirmTarget && (
-        <ConfirmDialog
-          title="Delete this part?"
-          message={`"${confirmTarget.name}" (${confirmTarget.part_number}) will be permanently removed from the catalog. This action cannot be undone.`}
-          confirmLabel="Delete"
-          cancelLabel="Keep"
-          variant="danger"
-          loading={deleting}
-          onConfirm={confirmDelete}
-          onCancel={cancelDelete}
-        />
-      )}
-
-      {toggleTarget && (
-        <ConfirmDialog
-          title={
-            toggleTarget.is_active === 1 ? "Disable user?" : "Enable user?"
-          }
-          message={
-            toggleTarget.is_active === 1
-              ? `"${toggleTarget.name}" (@${toggleTarget.username}) will no longer be able to log in.`
-              : `"${toggleTarget.name}" (@${toggleTarget.username}) will be able to log in again.`
-          }
-          confirmLabel={toggleTarget.is_active === 1 ? "Disable" : "Enable"}
-          cancelLabel="Cancel"
-          variant={toggleTarget.is_active === 1 ? "danger" : "default"}
-          loading={togglingActive}
-          onConfirm={confirmToggleActive}
-          onCancel={cancelToggleActive}
-        />
-      )}
-
       {toast && (
         <Toast
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
+        />
+      )}
+
+      {confirmTarget && (
+        <ConfirmDialog
+          title="Delete part?"
+          message={`Are you sure you want to delete "${confirmTarget.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+          loading={deleting}
         />
       )}
     </div>
