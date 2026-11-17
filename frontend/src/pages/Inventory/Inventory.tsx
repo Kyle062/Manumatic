@@ -971,6 +971,23 @@ export default function Inventory() {
         format: "a4",
       });
 
+      // 🟢 FIX: Fetch the font from your public folder and convert to binary
+      const fontUrl = "/fonts/Roboto.ttf";
+      const response = await fetch(fontUrl);
+      if (!response.ok) throw new Error("Font file not found in public folder");
+      
+      const fontBuffer = await response.arrayBuffer();
+      let fontBinary = "";
+      const fontBytes = new Uint8Array(fontBuffer);
+      for (let i = 0; i < fontBytes.byteLength; i++) {
+        fontBinary += String.fromCharCode(fontBytes[i]);
+      }
+
+      // Register the font
+      doc.addFileToVFS("Roboto.ttf", fontBinary);
+      doc.addFont("Roboto.ttf", "Roboto", "normal");
+      doc.setFont("Roboto");
+
       doc.setFontSize(16);
       doc.setTextColor(15, 107, 92);
       doc.text("Parts Catalog", 40, 40);
@@ -1009,11 +1026,12 @@ export default function Inventory() {
         head,
         body,
         startY: 72,
-        styles: { fontSize: 8, cellPadding: 4 },
-        headStyles: { fillColor: [15, 107, 92], textColor: 255, fontSize: 8 },
+        styles: { font: "Roboto", fontSize: 8, cellPadding: 4 }, // Ensure table uses Roboto
+        headStyles: { font: "Roboto", fillColor: [15, 107, 92], textColor: 255, fontSize: 8 },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         margin: { left: 40, right: 40 },
         didDrawPage: () => {
+          doc.setFont("Roboto"); // Ensure footer uses Roboto
           doc.setFontSize(8);
           doc.setTextColor(156, 163, 175);
           doc.text(
@@ -1033,7 +1051,7 @@ export default function Inventory() {
       showToast("PDF exported successfully.", "success");
     } catch (err) {
       console.error(err);
-      showToast("Failed to export PDF.", "error");
+      showToast("Failed to export PDF. Make sure fonts/Roboto.ttf exists in your public folder.", "error");
     } finally {
       setPdfGenerating(false);
       setShowPrintModal(false);
