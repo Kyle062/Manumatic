@@ -23,6 +23,7 @@ import {
   ArrowDownToLine,
   Printer,
   Barcode,
+  FileDown,
 } from "lucide-react";
 import {
   getAllParts,
@@ -198,6 +199,17 @@ export default function Inventory() {
 
   const [toggleTarget, setToggleTarget] = useState<AppUser | null>(null);
   const [togglingActive, setTogglingActive] = useState(false);
+
+  // NEW: Print / PDF state
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printOptions, setPrintOptions] = useState({
+    includeSupplier: true,
+    includeCategory: true,
+    includePrice: true,
+    includeStock: true,
+    includeReorder: true,
+  });
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const existingCategories = useMemo(() => {
     const set = new Set(parts.map((p) => p.category));
@@ -863,6 +875,156 @@ export default function Inventory() {
     });
   };
 
+  // NEW: Build print HTML
+  const buildPrintHTML = () => {
+    const rows = filtered
+      .map(
+        (p) => `
+        <tr>
+          <td>${p.part_number}</td>
+          <td>${p.name}</td>
+          ${printOptions.includeSupplier ? `<td>${p.supplier || "-"}</td>` : ""}
+          ${printOptions.includeCategory ? `<td>${p.category}</td>` : ""}
+          ${printOptions.includePrice ? `<td style="text-align:right">${money(p.price)}</td>` : ""}
+          ${printOptions.includeStock ? `<td style="text-align:right">${p.quantity}</td>` : ""}
+          ${printOptions.includeReorder ? `<td style="text-align:right">${p.reorder_level}</td>` : ""}
+        </tr>`,
+      )
+      .join("");
+
+    const headers = [
+      "PART #",
+      "NAME",
+      ...(printOptions.includeSupplier ? ["SUPPLIER"] : []),
+      ...(printOptions.includeCategory ? ["CATEGORY"] : []),
+      ...(printOptions.includePrice ? ["PRICE"] : []),
+      ...(printOptions.includeStock ? ["STOCK"] : []),
+      ...(printOptions.includeReorder ? ["REORDER AT"] : []),
+    ]
+      .map((h) => `<th>${h}</th>`)
+      .join("");
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <title>Parts Catalog - ${new Date().toLocaleDateString()}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #111827; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .meta { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; background: #f3f4f6; padding: 8px 10px; border-bottom: 2px solid #d1d5db; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+    td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .footer { margin-top: 16px; font-size: 11px; color: #9ca3af; text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>Parts Catalog</h1>
+  <div class="meta">Generated: ${new Date().toLocaleString()} · ${filtered.length} part(s)</div>
+  <table>
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Manumatik Auto Parts Center</div>
+</body>
+</html>`;
+  };
+
+  const handlePrint = () => {
+    const win = window.open("", "_blank");
+    if (!win) {
+      showToast("Please allow pop-ups to print.", "error");
+      return;
+    }
+    win.document.write(buildPrintHTML());
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  };
+
+  const handleExportPDF = async () => {
+    setPdfGenerating(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4",
+      });
+
+      doc.setFontSize(16);
+      doc.setTextColor(15, 107, 92);
+      doc.text("Parts Catalog", 40, 40);
+
+      doc.setFontSize(9);
+      doc.setTextColor(107, 114, 128);
+      doc.text(
+        `Generated: ${new Date().toLocaleString()}  ·  ${filtered.length} part(s)`,
+        40,
+        58,
+      );
+
+      const head = [
+        [
+          "Part #",
+          "Name",
+          ...(printOptions.includeSupplier ? ["Supplier"] : []),
+          ...(printOptions.includeCategory ? ["Category"] : []),
+          ...(printOptions.includePrice ? ["Price"] : []),
+          ...(printOptions.includeStock ? ["Stock"] : []),
+          ...(printOptions.includeReorder ? ["Reorder At"] : []),
+        ],
+      ];
+
+      const body = filtered.map((p) => [
+        p.part_number,
+        p.name,
+        ...(printOptions.includeSupplier ? [p.supplier || "-"] : []),
+        ...(printOptions.includeCategory ? [p.category] : []),
+        ...(printOptions.includePrice ? [money(p.price)] : []),
+        ...(printOptions.includeStock ? [String(p.quantity)] : []),
+        ...(printOptions.includeReorder ? [String(p.reorder_level)] : []),
+      ]);
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: 72,
+        styles: { fontSize: 8, cellPadding: 4 },
+        headStyles: { fillColor: [15, 107, 92], textColor: 255, fontSize: 8 },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        margin: { left: 40, right: 40 },
+        didDrawPage: () => {
+          doc.setFontSize(8);
+          doc.setTextColor(156, 163, 175);
+          doc.text(
+            "Manumatik Auto Parts Center",
+            40,
+            doc.internal.pageSize.getHeight() - 20,
+          );
+          doc.text(
+            `Page ${doc.internal.pages.length - 1}`,
+            doc.internal.pageSize.getWidth() - 60,
+            doc.internal.pageSize.getHeight() - 20,
+          );
+        },
+      });
+
+      doc.save(`parts-catalog-${new Date().toISOString().slice(0, 10)}.pdf`);
+      showToast("PDF exported successfully.", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to export PDF.", "error");
+    } finally {
+      setPdfGenerating(false);
+      setShowPrintModal(false);
+    }
+  };
+
   return (
     <div className="dashboard-layout">
       <Sidebar />
@@ -950,13 +1112,33 @@ export default function Inventory() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="inv-add-btn"
-                  onClick={openAddModal}
-                >
-                  <Plus size={15} /> Add part
-                </button>
+                <div className="inv-toolbar-actions">
+                  <button
+                    type="button"
+                    className="inv-add-btn inv-add-btn--ghost"
+                    onClick={() => setShowPrintModal(true)}
+                    title="Print parts catalog"
+                  >
+                    <Printer size={15} /> Print
+                  </button>
+
+                  <button
+                    type="button"
+                    className="inv-add-btn inv-add-btn--ghost"
+                    onClick={() => setShowPrintModal(true)}
+                    title="Export as PDF"
+                  >
+                    <FileDown size={15} /> Export PDF
+                  </button>
+
+                  <button
+                    type="button"
+                    className="inv-add-btn"
+                    onClick={openAddModal}
+                  >
+                    <Plus size={15} /> Add part
+                  </button>
+                </div>
               </div>
 
               {error && <div className="inv-error">{error}</div>}
@@ -2325,6 +2507,121 @@ export default function Inventory() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* NEW: Print / Export PDF Modal */}
+      {showPrintModal && (
+        <div className="modal-overlay" onClick={() => setShowPrintModal(false)}>
+          <div
+            className="modal modal--small"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Print / Export Catalog</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowPrintModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-form">
+              <div className="reset-context">
+                {filtered.length} part(s) will be included (respects current
+                search &amp; sort).
+              </div>
+
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "10px" }}
+              >
+                <label
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "#374151",
+                  }}
+                >
+                  Columns to include
+                </label>
+
+                {(
+                  [
+                    ["includeSupplier", "Supplier"],
+                    ["includeCategory", "Category"],
+                    ["includePrice", "Price"],
+                    ["includeStock", "Stock"],
+                    ["includeReorder", "Reorder Level"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label
+                    key={key}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      fontSize: "13px",
+                      color: "#1f2937",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={printOptions[key]}
+                      onChange={(e) =>
+                        setPrintOptions({
+                          ...printOptions,
+                          [key]: e.target.checked,
+                        })
+                      }
+                      style={{ width: "15px", height: "15px" }}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowPrintModal(false)}
+                  disabled={pdfGenerating}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handlePrint}
+                  disabled={pdfGenerating || filtered.length === 0}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <Printer size={14} /> Print
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleExportPDF}
+                  disabled={pdfGenerating || filtered.length === 0}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <FileDown size={14} />
+                  {pdfGenerating ? "Generating..." : "Export PDF"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
