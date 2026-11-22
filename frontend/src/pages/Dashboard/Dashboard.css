@@ -191,12 +191,19 @@
 /* ============================================================
    ROWS
    ============================================================ */
+/* .dashboard-content is a flex column. Without this, rows shrink to fit the
+   viewport and the bottom stat tiles get clipped / covered by the next row. */
+.dash-row-top,
+.dash-row-bottom,
+.dash-row-third {
+  flex-shrink: 0;
+}
+
 .dash-row-top {
   display: grid;
   grid-template-columns: 1.9fr 1fr;
   gap: 22px;
   align-items: stretch;
-  min-height: 400px;
 }
 
 .dash-analytics {
@@ -213,7 +220,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-top: auto;
 }
 
 /* --- Stat tiles --- */

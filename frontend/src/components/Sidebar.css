@@ -245,3 +245,7 @@
     line-height: 1;
   }
 }
+/* Hide the low stock badge in the sidebar */
+.sidebar__nav-badge {
+  display: none !important;
+}
