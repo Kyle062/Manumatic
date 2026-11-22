@@ -11,7 +11,7 @@
 }
 
 /* ============================================================
-   TABS (UPDATED FOR RESPONSIVENESS)
+   TABS
    ============================================================ */
 
 .rpt-tabs {
@@ -288,7 +288,7 @@
 }
 
 /* ============================================================
-   TABLE — ALIGNED COLUMNS
+   TABLE
    ============================================================ */
 
 .rpt-table {
@@ -327,15 +327,11 @@
   background: #f9fafb;
 }
 
-/* Column widths — keep values aligned under headers */
-
-/* Right-align numeric + money columns */
 .rpt-table th.rpt-right,
 .rpt-table td.rpt-right {
   text-align: right;
 }
 
-/* Fixed widths per column type */
 .rpt-table .rpt-col-rank {
   width: 50px;
   text-align: center;
@@ -365,7 +361,6 @@
   width: 110px;
 }
 
-/* Override centering for rank */
 .rpt-table th.rpt-col-rank,
 .rpt-table td.rpt-col-rank {
   text-align: center;
@@ -405,7 +400,6 @@
   border-radius: 50%;
 }
 
-/* Tags */
 .rpt-tag {
   display: inline-block;
   padding: 3px 9px;
@@ -431,7 +425,6 @@
   color: #92400e;
 }
 
-/* Urgency badges */
 .rpt-urgency {
   display: inline-block;
   padding: 4px 10px;

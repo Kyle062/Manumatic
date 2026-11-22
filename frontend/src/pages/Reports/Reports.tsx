@@ -39,6 +39,9 @@ import {
   getLowStockForecast,
   getCashierPerformance,
 } from "../../services/api";
+
+// Import the logo directly so Vite bundles it
+import logoImage from "../../assets/images/Signage.png";
 import "./Reports.css";
 
 // ============================================================
@@ -93,6 +96,11 @@ export default function Reports() {
   const [cashierData, setCashierData] = useState<any[]>([]);
 
   const [selectedDay, setSelectedDay] = useState<any>(null);
+
+  // ---- Export Modal State ----
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportAction, setExportAction] = useState<"print" | "pdf">("print");
+  const [exportRanges, setExportRanges] = useState<string[]>(["today"]);
 
   // ---- Load data on tab change ----
   useEffect(() => {
@@ -163,14 +171,14 @@ export default function Reports() {
     });
   };
 
-  const rangeLabel =
-    range === "today"
-      ? "Today"
-      : range === "week"
-        ? "Last 7 Days"
-        : "Last 30 Days";
+  const getRangeLabel = (r: string) => {
+    if (r === "today") return "Today";
+    if (r === "week") return "Last 7 Days";
+    if (r === "month") return "Last 30 Days";
+    return "All Time";
+  };
 
-  // ---- CSV Export (with basic sanitization) ----
+  // ---- CSV Export ----
   const exportCSV = (filename: string, rows: any[]) => {
     if (!rows || rows.length === 0) {
       showToast("No data to export.", "error");
@@ -186,7 +194,6 @@ export default function Reports() {
             .map((h) => {
               const val = r[h];
               if (val === null || val === undefined) return "";
-              // Basic CSV injection prevention
               let str = String(val).replace(/"/g, '""');
               if (
                 str.includes(",") ||
@@ -215,26 +222,22 @@ export default function Reports() {
     }
   };
 
-  // ---- Data Aggregation for Print/PDF ----
-  const getExportData = () => {
+  // ---- Data Aggregation for specific range ----
+  const getExportDataForRange = (targetRange: string, data: any) => {
     if (activeTab === "sales") {
-      const displayData = selectedDay
-        ? selectedDay.parts_sold
-        : salesData?.daily?.flatMap((d: any) => d.parts_sold || []) || [];
-
-      const aggregatedData = selectedDay
-        ? displayData
-        : Object.values(
-            displayData.reduce((acc: any, item: any) => {
-              if (!acc[item.part_id]) {
-                acc[item.part_id] = { ...item };
-              } else {
-                acc[item.part_id].quantity_sold += item.quantity_sold;
-                acc[item.part_id].revenue += item.revenue;
-              }
-              return acc;
-            }, {}),
-          );
+      const displayData =
+        data?.daily?.flatMap((d: any) => d.parts_sold || []) || [];
+      const aggregatedData = Object.values(
+        displayData.reduce((acc: any, item: any) => {
+          if (!acc[item.part_id]) {
+            acc[item.part_id] = { ...item };
+          } else {
+            acc[item.part_id].quantity_sold += item.quantity_sold;
+            acc[item.part_id].revenue += item.revenue;
+          }
+          return acc;
+        }, {}),
+      );
 
       return {
         head: [["Part", "Part #", "Qty Sold", "Revenue"]],
@@ -249,7 +252,7 @@ export default function Reports() {
       return {
         head: [["Category", "Parts", "Units", "Value"]],
         body:
-          valuationData?.by_category?.map((c: any) => [
+          data?.by_category?.map((c: any) => [
             c.category,
             c.part_count,
             c.units,
@@ -260,7 +263,7 @@ export default function Reports() {
       return {
         head: [["Part", "Part #", "Sold", "Revenue"]],
         body:
-          moversData?.top?.map((p: any) => [
+          data?.top?.map((p: any) => [
             p.name,
             p.part_number,
             p.units_sold,
@@ -270,58 +273,66 @@ export default function Reports() {
     } else if (activeTab === "reorder") {
       return {
         head: [["Urgency", "Part", "In Stock", "Deficit", "Restock Cost"]],
-        body: reorderData.map((r) => [
-          r.urgency,
-          r.name,
-          r.quantity,
-          r.deficit,
-          money(r.restock_cost),
-        ]),
+        body:
+          data?.map((r: any) => [
+            r.urgency,
+            r.name,
+            r.quantity,
+            r.deficit,
+            money(r.restock_cost),
+          ]) || [],
       };
     } else if (activeTab === "forecast") {
       return {
         head: [["Status", "Part", "In Stock", "Daily Sales", "Days"]],
-        body: forecastData.map((f) => [
-          f.stockout_status,
-          f.name,
-          f.current_stock,
-          f.avg_daily_sales,
-          f.days_until_stockout,
-        ]),
+        body:
+          data?.map((f: any) => [
+            f.stockout_status,
+            f.name,
+            f.current_stock,
+            f.avg_daily_sales,
+            f.days_until_stockout,
+          ]) || [],
       };
     } else if (activeTab === "cashier") {
       return {
         head: [["Cashier", "Role", "Sales", "Revenue"]],
-        body: cashierData.map((c) => [
-          c.name,
-          c.role,
-          c.total_sales,
-          money(c.total_revenue),
-        ]),
+        body:
+          data?.map((c: any) => [
+            c.name,
+            c.role,
+            c.total_sales,
+            money(c.total_revenue),
+          ]) || [],
       };
     }
     return { head: [], body: [] };
   };
 
+  // Helper to fetch data dynamically for the export
+  const fetchDataForRange = async (r: string) => {
+    if (activeTab === "sales") {
+      const actualRange = r === "all" ? "month" : r;
+      const res = await getSalesOverview(actualRange as Range);
+      return res.data;
+    } else if (activeTab === "valuation") return valuationData;
+    else if (activeTab === "movers") return moversData;
+    else if (activeTab === "reorder") return reorderData;
+    else if (activeTab === "forecast") return forecastData;
+    else if (activeTab === "cashier") return cashierData;
+    return null;
+  };
+
   // ---- Print Logic ----
-  const handlePrint = () => {
+  const executePrint = async () => {
+    setShowExportModal(false);
     const win = window.open("", "_blank");
     if (!win) {
       showToast("Please allow pop-ups to print.", "error");
       return;
     }
 
-    const { head, body } = getExportData();
-    const headHTML = head[0].map((h: string) => `<th>${h}</th>`).join("");
-    const bodyHTML = body
-      .map(
-        (row: any) =>
-          `<tr>${row.map((cell: any) => `<td>${cell}</td>`).join("")}</tr>`,
-      )
-      .join("");
-
-    win.document.open();
-    win.document.write(`
+    let htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -329,8 +340,9 @@ export default function Reports() {
         <title>Report - ${activeTab.toUpperCase()}</title>
         <style>
           body { font-family: sans-serif; padding: 40px; color: #111827; }
+          .page-break { page-break-after: always; }
           .header { display: flex; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #0f6b5c; padding-bottom: 20px; }
-          .logo { height: 50px; margin-right: 20px; }
+          .logo { height: 50px; margin-right: 20px; object-fit: contain; }
           h2 { color: #0f6b5c; margin: 0; }
           .meta { color: #6b7280; font-size: 14px; margin-bottom: 20px; }
           table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -340,26 +352,47 @@ export default function Reports() {
         </style>
       </head>
       <body>
-        <div class="header">
-          <img src="${window.location.origin}/logo.png" class="logo" alt="Logo" onerror="this.style.display='none'" />
-          <h2>Report: ${activeTab.toUpperCase()} (${activeTab === "sales" ? rangeLabel : "All Time"})</h2>
+    `;
+
+    for (const r of exportRanges) {
+      const data = await fetchDataForRange(r);
+      const { head, body } = getExportDataForRange(r, data);
+      const headHTML = head[0].map((h: string) => `<th>${h}</th>`).join("");
+      const bodyHTML = body
+        .map(
+          (row: any) =>
+            `<tr>${row.map((cell: any) => `<td>${cell}</td>`).join("")}</tr>`,
+        )
+        .join("");
+
+      htmlContent += `
+        <div class="page-break">
+          <div class="header">
+            <img src="${logoImage}" class="logo" alt="Logo" />
+            <h2>Report: ${activeTab.toUpperCase()} (${getRangeLabel(r)})</h2>
+          </div>
+          <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+          <table>
+            <thead><tr>${headHTML}</tr></thead>
+            <tbody>${bodyHTML}</tbody>
+          </table>
+          <div class="footer">Manumatik Auto Parts Center</div>
         </div>
-        <div class="meta">Generated: ${new Date().toLocaleString()}</div>
-        <table>
-          <thead><tr>${headHTML}</tr></thead>
-          <tbody>${bodyHTML}</tbody>
-        </table>
-        <div class="footer">Manumatik Auto Parts Center</div>
-      </body>
-      </html>
-    `);
+      `;
+    }
+
+    htmlContent += `</body></html>`;
+
+    win.document.open();
+    win.document.write(htmlContent);
     win.document.close();
     win.focus();
-    setTimeout(() => win.print(), 300);
+    setTimeout(() => win.print(), 500);
   };
 
   // ---- PDF Export Logic ----
-  const handleExportPDF = async () => {
+  const executeExportPDF = async () => {
+    setShowExportModal(false);
     setPdfGenerating(true);
     try {
       const { jsPDF } = await import("jspdf");
@@ -387,66 +420,71 @@ export default function Reports() {
       doc.addFont("Roboto.ttf", "Roboto", "normal");
       doc.setFont("Roboto");
 
-      // Load Logo
-      try {
-        const logoUrl = "/logo.png"; // Make sure you have a logo.png in your public folder
-        const imgData = await fetch(logoUrl)
-          .then((res) => res.blob())
-          .then((blob) => {
-            return new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result as string);
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
+      let isFirstPage = true;
+
+      for (const r of exportRanges) {
+        const data = await fetchDataForRange(r);
+        const { head, body } = getExportDataForRange(r, data);
+
+        if (!isFirstPage) {
+          doc.addPage();
+        }
+        isFirstPage = false;
+
+        // Load Logo dynamically
+        try {
+          const img = new Image();
+          img.src = logoImage;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
           });
-        doc.addImage(imgData, "PNG", 40, 30, 80, 30);
-      } catch (err) {
-        console.warn("Logo not found, skipping.");
+          // Since jsPDF expects an HTMLImageElement or base64, we pass the imported URL
+          doc.addImage(img, "PNG", 40, 30, 80, 30);
+        } catch (err) {
+          console.warn("Logo not found, skipping.");
+        }
+
+        doc.setFontSize(16);
+        doc.setTextColor(15, 107, 92);
+        doc.text(
+          `Report: ${activeTab.toUpperCase()} (${getRangeLabel(r)})`,
+          130,
+          45,
+        );
+
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 130, 60);
+
+        autoTable(doc, {
+          head,
+          body,
+          startY: 90,
+          styles: { font: "Roboto", fontSize: 9, cellPadding: 5 },
+          headStyles: { fillColor: [15, 107, 92], textColor: 255 },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          margin: { left: 40, right: 40 },
+          didDrawPage: () => {
+            doc.setFont("Roboto");
+            doc.setFontSize(8);
+            doc.setTextColor(156, 163, 175);
+            doc.text(
+              "Manumatik Auto Parts Center",
+              40,
+              doc.internal.pageSize.getHeight() - 20,
+            );
+            doc.text(
+              `Page ${doc.internal.pages.length - 1}`,
+              doc.internal.pageSize.getWidth() - 60,
+              doc.internal.pageSize.getHeight() - 20,
+            );
+          },
+        });
       }
 
-      doc.setFontSize(16);
-      doc.setTextColor(15, 107, 92);
-      doc.text(`Report: ${activeTab.toUpperCase()}`, 130, 45);
-
-      doc.setFontSize(10);
-      doc.setTextColor(107, 114, 128);
-      doc.text(
-        `Range: ${activeTab === "sales" ? rangeLabel : "All Time"}`,
-        130,
-        60,
-      );
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 130, 75);
-
-      const { head, body } = getExportData();
-
-      autoTable(doc, {
-        head,
-        body,
-        startY: 90,
-        styles: { font: "Roboto", fontSize: 9, cellPadding: 5 },
-        headStyles: { fillColor: [15, 107, 92], textColor: 255 },
-        alternateRowStyles: { fillColor: [249, 250, 251] },
-        margin: { left: 40, right: 40 },
-        didDrawPage: (data) => {
-          doc.setFont("Roboto");
-          doc.setFontSize(8);
-          doc.setTextColor(156, 163, 175);
-          doc.text(
-            "Manumatik Auto Parts Center",
-            40,
-            doc.internal.pageSize.getHeight() - 20,
-          );
-          doc.text(
-            `Page ${doc.internal.pages.length - 1}`,
-            doc.internal.pageSize.getWidth() - 60,
-            doc.internal.pageSize.getHeight() - 20,
-          );
-        },
-      });
-
       doc.save(
-        `report-${activeTab}-${range}-${new Date().toISOString().slice(0, 10)}.pdf`,
+        `report-${activeTab}-${new Date().toISOString().slice(0, 10)}.pdf`,
       );
       showToast("PDF exported successfully.", "success");
     } catch (err) {
@@ -521,13 +559,19 @@ export default function Reports() {
                 type="button"
                 className="rpt-export"
                 onClick={() => {
-                  const { body } = getExportData();
+                  const { body } = getExportDataForRange(
+                    range,
+                    activeTab === "sales" ? salesData : {},
+                  );
                   exportCSV(
-                    `report-${activeTab}`,
+                    `report-${activeTab}-${range}`,
                     body.map((row: any[]) =>
                       Object.fromEntries(
                         row.map((val: any, i: number) => [
-                          getExportData().head[0][i],
+                          getExportDataForRange(
+                            range,
+                            activeTab === "sales" ? salesData : {},
+                          ).head[0][i],
                           val,
                         ]),
                       ),
@@ -540,14 +584,20 @@ export default function Reports() {
               <button
                 type="button"
                 className="rpt-export"
-                onClick={handlePrint}
+                onClick={() => {
+                  setExportAction("print");
+                  setShowExportModal(true);
+                }}
               >
                 <Printer size={14} /> Print
               </button>
               <button
                 type="button"
                 className="rpt-export"
-                onClick={handleExportPDF}
+                onClick={() => {
+                  setExportAction("pdf");
+                  setShowExportModal(true);
+                }}
                 disabled={pdfGenerating}
               >
                 <FileDown size={14} />{" "}
@@ -1293,6 +1343,159 @@ export default function Reports() {
           )}
         </div>
       </div>
+
+      {/* EXPORT MODAL */}
+      {showExportModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowExportModal(false)}
+        >
+          <div
+            className="modal modal--small"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Export Options - {activeTab.toUpperCase()}</h2>
+              <button
+                className="modal-close"
+                onClick={() => setShowExportModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-form">
+              <div className="reset-context">
+                Select the date range(s) you want to include in the{" "}
+                {exportAction === "pdf" ? "PDF" : "Print"} document.
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  margin: "15px 0",
+                }}
+              >
+                {activeTab === "sales" ? (
+                  <>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportRanges.includes("today")}
+                        onChange={(e) => {
+                          if (e.target.checked)
+                            setExportRanges([...exportRanges, "today"]);
+                          else
+                            setExportRanges(
+                              exportRanges.filter((r) => r !== "today"),
+                            );
+                        }}
+                      />
+                      Today
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportRanges.includes("week")}
+                        onChange={(e) => {
+                          if (e.target.checked)
+                            setExportRanges([...exportRanges, "week"]);
+                          else
+                            setExportRanges(
+                              exportRanges.filter((r) => r !== "week"),
+                            );
+                        }}
+                      />
+                      Last 7 Days
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportRanges.includes("month")}
+                        onChange={(e) => {
+                          if (e.target.checked)
+                            setExportRanges([...exportRanges, "month"]);
+                          else
+                            setExportRanges(
+                              exportRanges.filter((r) => r !== "month"),
+                            );
+                        }}
+                      />
+                      Last 30 Days
+                    </label>
+                  </>
+                ) : (
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportRanges.includes("all")}
+                      onChange={(e) => {
+                        if (e.target.checked) setExportRanges(["all"]);
+                        else setExportRanges([]);
+                      }}
+                    />
+                    All Time (Full Data)
+                  </label>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowExportModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={exportRanges.length === 0 || pdfGenerating}
+                  onClick={() => {
+                    if (exportAction === "print") executePrint();
+                    else executeExportPDF();
+                  }}
+                >
+                  {pdfGenerating
+                    ? "Generating..."
+                    : exportAction === "pdf"
+                      ? "Generate PDF"
+                      : "Print Now"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toast && (
         <Toast

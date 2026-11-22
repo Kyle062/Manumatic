@@ -1117,113 +1117,8 @@ textarea.adj-input {
   background: #f3f4f6;
 }
 
-@media (max-width: 900px) {
-  .avail-toolbar {
-    grid-template-columns: 1fr 1fr;
-  }
-  .avail-toolbar__search {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 768px) {
-  .inv-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .inv-search {
-    max-width: 100%;
-  }
-  .inv-add-btn {
-    justify-content: center;
-  }
-  .inv-table {
-    font-size: 12px;
-  }
-  .inv-table thead th,
-  .inv-table tbody td {
-    padding: 10px 8px;
-  }
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .avail-toolbar {
-    grid-template-columns: 1fr;
-  }
-  .avail-alert {
-    flex-wrap: wrap;
-  }
-  .avail-alert__action {
-    width: 100%;
-    margin-top: 4px;
-  }
-}
-
 /* ============================================================
    CATALOG SORTING CONTROLS
-   ============================================================ */
-
-.inv-sort-group {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.inv-sort-pill {
-  display: flex;
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0 8px;
-  height: 40px;
-  transition: border-color 0.15s;
-}
-
-.inv-sort-pill:focus-within {
-  border-color: #0f6b5c;
-}
-
-.inv-sort-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
-  text-transform: uppercase;
-  margin-right: 8px;
-  letter-spacing: 0.05em;
-}
-
-.inv-sort-select {
-  border: none;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 500;
-  color: #111827;
-  outline: none;
-  cursor: pointer;
-  font-family: inherit;
-  padding-right: 4px;
-}
-
-/* Responsive adjustments for sorting */
-@media (max-width: 1024px) {
-  .inv-toolbar {
-    flex-wrap: wrap;
-  }
-  .inv-sort-group {
-    width: 100%;
-    margin-top: 10px;
-  }
-  .inv-sort-pill {
-    flex: 1;
-  }
-}
-
-/* ============================================================
-   UNIFIED CATALOG SORTING PILLS (3 Separate)
    ============================================================ */
 
 .inv-sort-group {
@@ -1273,17 +1168,6 @@ textarea.adj-input {
   padding: 0 4px 0 0;
 }
 
-/* Responsive adjustment for the toolbar to wrap nicely */
-@media (max-width: 1200px) {
-  .inv-sort-group {
-    width: 100%;
-    margin-top: 10px;
-  }
-  .inv-sort-pill {
-    flex: 1;
-    min-width: 150px;
-  }
-}
 /* ============================================================
    PRINT / EXPORT TOOLBAR ACTIONS
    ============================================================ */
@@ -1306,7 +1190,111 @@ textarea.adj-input {
   border-color: #d1d5db;
 }
 
+/* ============================================================
+   ANIMATIONS & TRANSITIONS
+   ============================================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes staggerFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* Stagger fade for KPI Cards / table rows */
+.stagger-fade tbody tr,
+.stagger-fade .avail-card {
+  opacity: 0;
+  animation: staggerFade 0.4s ease-out forwards;
+}
+
+.stagger-fade tbody tr:nth-child(1),
+.stagger-fade .avail-card:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.stagger-fade tbody tr:nth-child(2),
+.stagger-fade .avail-card:nth-child(2) {
+  animation-delay: 0.04s;
+}
+.stagger-fade tbody tr:nth-child(3),
+.stagger-fade .avail-card:nth-child(3) {
+  animation-delay: 0.06s;
+}
+.stagger-fade tbody tr:nth-child(4),
+.stagger-fade .avail-card:nth-child(4) {
+  animation-delay: 0.08s;
+}
+.stagger-fade tbody tr:nth-child(5),
+.stagger-fade .avail-card:nth-child(5) {
+  animation-delay: 0.1s;
+}
+.stagger-fade tbody tr:nth-child(6),
+.stagger-fade .avail-card:nth-child(6) {
+  animation-delay: 0.12s;
+}
+.stagger-fade tbody tr:nth-child(7),
+.stagger-fade .avail-card:nth-child(7) {
+  animation-delay: 0.14s;
+}
+.stagger-fade tbody tr:nth-child(8),
+.stagger-fade .avail-card:nth-child(8) {
+  animation-delay: 0.16s;
+}
+
+.hover-lift {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
 @media (max-width: 1024px) {
+  .avail-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+  .avail-toolbar__search {
+    grid-column: 1 / -1;
+  }
   .inv-toolbar-actions {
     width: 100%;
     margin-top: 10px;
@@ -1318,10 +1306,51 @@ textarea.adj-input {
 }
 
 @media (max-width: 768px) {
+  .inv-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .inv-search {
+    max-width: 100%;
+  }
+  .inv-add-btn {
+    justify-content: center;
+  }
+  .inv-table {
+    font-size: 12px;
+  }
+  .inv-table thead th,
+  .inv-table tbody td {
+    padding: 10px 8px;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
   .inv-toolbar-actions {
     flex-direction: column;
   }
   .inv-toolbar-actions .inv-add-btn {
     width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .avail-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .avail-alert {
+    flex-wrap: wrap;
+  }
+  .avail-alert__action {
+    width: 100%;
+    margin-top: 4px;
+  }
+  .inv-sort-group {
+    width: 100%;
+    margin-top: 10px;
+  }
+  .inv-sort-pill {
+    flex: 1;
+    min-width: 150px;
   }
 }

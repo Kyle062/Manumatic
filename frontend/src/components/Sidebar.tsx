@@ -44,6 +44,16 @@ export default function Sidebar() {
     }
   };
 
+  const handleLogout = () => {
+    // Only remove rememberedUsername if rememberMe is false
+    // But since we can't easily access rememberMe state here,
+    // let's rely on the user's explicit preference or clear it if they choose.
+    // For now, let's keep the username if they checked "remember me" previously,
+    // and just clear the password/session token which happens implicitly via logout().
+    logout();
+    navigate("/login");
+  };
+
   return (
     <aside className="sidebar">
       <div className="sidebar__logo">
@@ -85,7 +95,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar__footer">
-        <button type="button" className="sidebar__logout" onClick={logout}>
+        <button type="button" className="sidebar__logout" onClick={handleLogout}>
           <LogOut size={14} strokeWidth={2} />
           <span>Logout</span>
         </button>

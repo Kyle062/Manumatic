@@ -38,6 +38,9 @@ import {
   receiveStock,
 } from "../../services/api";
 import { Part } from "../../types";
+
+// Import the logo directly so Vite bundles it
+import logoImage from "../../assets/images/Signage.png";
 import "./Inventory.css";
 
 type Tab = "catalog" | "adjustments" | "availability" | "settings";
@@ -888,7 +891,7 @@ export default function Inventory() {
     });
   };
 
-  // Build print HTML with UTF-8 charset
+  // Build print HTML with UTF-8 charset and logo
   const buildPrintHTML = () => {
     const rows = filtered
       .map(
@@ -925,7 +928,9 @@ export default function Inventory() {
   <style>
     * { box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #111827; }
-    h1 { font-size: 20px; margin: 0 0 4px; }
+    .header { display: flex; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #0f6b5c; padding-bottom: 16px; }
+    .logo { height: 50px; margin-right: 20px; object-fit: contain; }
+    h1 { font-size: 20px; margin: 0 0 4px; color: #0f6b5c; }
     .meta { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     th { text-align: left; background: #f3f4f6; padding: 8px 10px; border-bottom: 2px solid #d1d5db; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -935,7 +940,10 @@ export default function Inventory() {
   </style>
 </head>
 <body>
-  <h1>Parts Catalog</h1>
+  <div class="header">
+    <img src="${logoImage}" class="logo" alt="Logo" />
+    <h1>Parts Catalog</h1>
+  </div>
   <div class="meta">Generated: ${new Date().toLocaleString()} · ${filtered.length} part(s)</div>
   <table>
     <thead><tr>${headers}</tr></thead>
@@ -975,7 +983,7 @@ export default function Inventory() {
       const fontUrl = "/fonts/Roboto.ttf";
       const response = await fetch(fontUrl);
       if (!response.ok) throw new Error("Font file not found in public folder");
-      
+
       const fontBuffer = await response.arrayBuffer();
       let fontBinary = "";
       const fontBytes = new Uint8Array(fontBuffer);
@@ -988,16 +996,29 @@ export default function Inventory() {
       doc.addFont("Roboto.ttf", "Roboto", "normal");
       doc.setFont("Roboto");
 
+      // Load Logo dynamically
+      try {
+        const img = new Image();
+        img.src = logoImage;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        doc.addImage(img, "PNG", 40, 30, 80, 30);
+      } catch (err) {
+        console.warn("Logo not found, skipping.");
+      }
+
       doc.setFontSize(16);
       doc.setTextColor(15, 107, 92);
-      doc.text("Parts Catalog", 40, 40);
+      doc.text("Parts Catalog", 130, 45);
 
       doc.setFontSize(9);
       doc.setTextColor(107, 114, 128);
       doc.text(
         `Generated: ${new Date().toLocaleString()}  ·  ${filtered.length} part(s)`,
-        40,
-        58,
+        130,
+        60,
       );
 
       const head = [
@@ -1025,13 +1046,18 @@ export default function Inventory() {
       autoTable(doc, {
         head,
         body,
-        startY: 72,
-        styles: { font: "Roboto", fontSize: 8, cellPadding: 4 }, // Ensure table uses Roboto
-        headStyles: { font: "Roboto", fillColor: [15, 107, 92], textColor: 255, fontSize: 8 },
+        startY: 90,
+        styles: { font: "Roboto", fontSize: 8, cellPadding: 4 },
+        headStyles: {
+          font: "Roboto",
+          fillColor: [15, 107, 92],
+          textColor: 255,
+          fontSize: 8,
+        },
         alternateRowStyles: { fillColor: [249, 250, 251] },
         margin: { left: 40, right: 40 },
         didDrawPage: () => {
-          doc.setFont("Roboto"); // Ensure footer uses Roboto
+          doc.setFont("Roboto");
           doc.setFontSize(8);
           doc.setTextColor(156, 163, 175);
           doc.text(
@@ -1051,7 +1077,10 @@ export default function Inventory() {
       showToast("PDF exported successfully.", "success");
     } catch (err) {
       console.error(err);
-      showToast("Failed to export PDF. Make sure fonts/Roboto.ttf exists in your public folder.", "error");
+      showToast(
+        "Failed to export PDF. Make sure fonts/Roboto.ttf exists in your public folder.",
+        "error",
+      );
     } finally {
       setPdfGenerating(false);
       setShowPrintModal(false);
@@ -1059,7 +1088,7 @@ export default function Inventory() {
   };
 
   return (
-    <div className="dashboard-layout">
+    <div className="dashboard-layout fade-in">
       <Sidebar />
 
       <div className="dashboard-main">
@@ -1087,7 +1116,7 @@ export default function Inventory() {
           </div>
 
           {activeTab === "catalog" && (
-            <>
+            <div className="slide-up">
               <div className="inv-toolbar">
                 <div className="inv-search">
                   <Search size={15} className="inv-search__icon" />
@@ -1184,7 +1213,7 @@ export default function Inventory() {
                     {search ? "No parts match your search." : "No parts yet."}
                   </div>
                 ) : (
-                  <table className="inv-table">
+                  <table className="inv-table stagger-fade">
                     <thead>
                       <tr>
                         <th>PART #</th>
@@ -1278,12 +1307,12 @@ export default function Inventory() {
                   </table>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {activeTab === "adjustments" && (
-            <div className="adj-layout adj-layout--centered">
-              <div className="adj-form-card">
+            <div className="adj-layout adj-layout--centered slide-up">
+              <div className="adj-form-card hover-lift">
                 <h2 className="adj-title">Stock Adjustments</h2>
 
                 <div
@@ -1669,9 +1698,9 @@ export default function Inventory() {
           )}
 
           {activeTab === "availability" && (
-            <div className="avail-layout">
+            <div className="avail-layout slide-up">
               {lowStockCount > 0 && (
-                <div className="avail-alert">
+                <div className="avail-alert hover-lift">
                   <AlertTriangle size={15} className="avail-alert__icon" />
                   <span className="avail-alert__text">
                     <strong>{lowStockCount}</strong>{" "}
@@ -1752,13 +1781,13 @@ export default function Inventory() {
               {availabilityData.length === 0 ? (
                 <div className="inv-empty">No parts match your filters.</div>
               ) : (
-                <div className="avail-list">
+                <div className="avail-list stagger-fade">
                   {availabilityData.map((part) => {
                     const outOfStock = part.quantity === 0;
                     const isLow =
                       part.quantity > 0 && part.quantity <= part.reorder_level;
                     return (
-                      <div className="avail-card" key={part.part_id}>
+                      <div className="avail-card hover-lift" key={part.part_id}>
                         <div className="avail-card__left">
                           <div className="avail-card__name">{part.name}</div>
                           <div className="avail-card__meta">
@@ -1788,8 +1817,8 @@ export default function Inventory() {
           )}
 
           {activeTab === "settings" && (
-            <div className="settings-layout">
-              <div className="settings-card">
+            <div className="settings-layout slide-up">
+              <div className="settings-card hover-lift">
                 <div className="settings-header">
                   <Store size={16} />
                   <h3>Store settings</h3>
@@ -1854,7 +1883,7 @@ export default function Inventory() {
               </div>
 
               {isAdmin && (
-                <div className="settings-card">
+                <div className="settings-card hover-lift">
                   <div className="settings-header">
                     <UsersIcon size={16} />
                     <h3>Manage users</h3>
@@ -2626,7 +2655,14 @@ export default function Inventory() {
               </div>
 
               <div className="form-group">
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={printOptions.includeSupplier}
@@ -2641,7 +2677,14 @@ export default function Inventory() {
                 </label>
               </div>
               <div className="form-group">
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={printOptions.includeCategory}
@@ -2656,7 +2699,14 @@ export default function Inventory() {
                 </label>
               </div>
               <div className="form-group">
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={printOptions.includePrice}
@@ -2671,7 +2721,14 @@ export default function Inventory() {
                 </label>
               </div>
               <div className="form-group">
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={printOptions.includeStock}
@@ -2686,7 +2743,14 @@ export default function Inventory() {
                 </label>
               </div>
               <div className="form-group">
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: "normal" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={printOptions.includeReorder}

@@ -166,9 +166,24 @@
 }
 
 .login-forgot {
-  text-align: right;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-top: -6px;
   margin-bottom: 24px;
+}
+
+.login-remember {
+  font-size: 11px;
+  color: #4b5563;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.login-remember input {
+  cursor: pointer;
 }
 
 .login-forgot a {
