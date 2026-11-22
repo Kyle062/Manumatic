@@ -295,7 +295,7 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  table-layout: fixed;
+  table-layout: auto; /* Changed from fixed to auto to prevent text clipping and truncation on smaller screens */
 }
 
 .rpt-table th {

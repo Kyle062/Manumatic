@@ -847,18 +847,26 @@
 @media (max-width: 900px) {
   .pos-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr 400px;
+    grid-template-rows: 1fr auto;
     height: auto;
     min-height: calc(100vh - 64px);
+    overflow-y: auto; /* Allow full scrolling on mobile */
   }
 
   .pos-products {
-    max-height: 60vh;
+    max-height: none; /* Remove max-height constraint so it doesn't clip */
+    overflow-y: visible;
+  }
+
+  .pos-list {
+    max-height: none;
+    overflow-y: visible;
   }
 
   .pos-cart {
     border-left: none;
     border-top: 1px solid #e5e7eb;
+    max-height: none;
   }
 }
 

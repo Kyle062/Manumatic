@@ -25,6 +25,15 @@
   gap: 22px;
 }
 
+@media (max-width: 768px) {
+  .dashboard-layout {
+    flex-direction: column;
+  }
+  .dashboard-main {
+    height: calc(100vh - 60px); /* Adjust for bottom nav */
+  }
+}
+
 .welcome-strip {
   display: flex;
   align-items: center;
