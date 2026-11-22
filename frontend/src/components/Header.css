@@ -18,8 +18,15 @@
 }
 
 .page-header__right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   font-size: 13px;
   color: #6b7280;
+}
+
+.page-header__brand {
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
@@ -31,7 +38,7 @@
   .page-header__title {
     font-size: 18px;
   }
-  .page-header__right {
+  .page-header__brand {
     display: none;
   }
 }
