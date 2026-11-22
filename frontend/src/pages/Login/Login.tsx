@@ -42,7 +42,7 @@ export default function Login() {
     setLoading(true);
 
     try {
-      const response = await loginUser(username, password);
+      const response = await loginUser(username, password, role);
 
       if (rememberMe) {
         localStorage.setItem("rememberedUsername", username);
