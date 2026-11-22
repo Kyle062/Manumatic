@@ -3,7 +3,7 @@ import { User, Part, Sale, DashboardStats, LoginResponse } from "../types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-const PYTHON_API_URL =
+export const PYTHON_API_URL =
   import.meta.env.VITE_PYTHON_API_URL || "http://localhost:8000/api";
 
 // Standard Node.js API (Auth, Inventory, Sales)

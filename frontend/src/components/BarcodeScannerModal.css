@@ -1,0 +1,246 @@
+/* ============================================================
+   SHARED BARCODE SCANNER MODAL
+   Used by Sales (add to cart) and Inventory (select part).
+   ============================================================ */
+
+.scanner-overlay {
+  z-index: 9999;
+}
+
+.modal--scanner {
+  max-width: 700px;
+  width: 100%;
+}
+
+/* ---------- Camera ---------- */
+
+.scanner-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px 0 20px;
+  background: #000;
+}
+
+.scanner-controls label {
+  color: #e5e7eb;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scanner-select {
+  flex: 1;
+  padding: 8px 12px;
+  background: #1f2937;
+  color: #ffffff;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.scanner-select:focus {
+  border-color: #0f6b5c;
+}
+
+.scanner-container {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #000;
+  border-radius: 0 0 12px 12px;
+}
+
+.scanner-video {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #000;
+}
+
+.scanner-hint {
+  color: #e5e7eb;
+  font-size: 13px;
+  margin-top: 12px;
+  font-weight: 500;
+}
+
+/* ---------- Manual entry ---------- */
+
+.scanner-manual {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 20px 0 20px;
+}
+
+.scanner-manual label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.scanner-manual__row {
+  display: flex;
+  gap: 8px;
+}
+
+.scanner-manual__row input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.scanner-manual__row input:focus {
+  border-color: #0f6b5c;
+}
+
+.scanner-manual__row .btn-secondary {
+  flex-shrink: 0;
+}
+
+.scanner-error {
+  margin: 12px 20px 0 20px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scanner-actions {
+  padding: 16px 20px 20px 20px;
+}
+
+/* ---------- Confirmation view ---------- */
+
+.scanner-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 24px 24px;
+}
+
+.scanner-found-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 9999px;
+  background: #e7f6ef;
+  color: #0f6b5c;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.scanner-confirm-hint {
+  margin: -4px 0 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.scanner-part-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 18px;
+  background: #f9fafb;
+}
+
+.scanner-part-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.scanner-part-number {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0f6b5c;
+  background: #e7f6ef;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.scanner-part-stock {
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f6b5c;
+  background: #e7f6ef;
+  border-radius: 9999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.scanner-part-stock.is-low {
+  color: #b45309;
+  background: #fff4e5;
+}
+
+.scanner-part-name {
+  margin: 12px 0 16px;
+  font-size: 19px;
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.3;
+}
+
+.scanner-part-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 20px;
+}
+
+.scanner-part-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.scanner-part-grid span {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #9ca3af;
+}
+
+.scanner-part-grid strong {
+  font-size: 13px;
+  color: #374151;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .scanner-part-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .scanner-confirm {
+    padding: 16px;
+  }
+
+  .scanner-video {
+    max-height: 42vh;
+  }
+}

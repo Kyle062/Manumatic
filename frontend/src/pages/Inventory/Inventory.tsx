@@ -4,6 +4,7 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Toast, { ToastType } from "../../components/Toast";
 import ConfirmDialog from "../../components/ConfirmDialog";
+import BarcodeScannerModal from "../../components/BarcodeScannerModal";
 import {
   Search,
   Plus,
@@ -24,6 +25,8 @@ import {
   Printer,
   Barcode,
   FileDown,
+  Camera,
+  CheckCircle2,
 } from "lucide-react";
 import {
   getAllParts,
@@ -164,6 +167,8 @@ export default function Inventory() {
 
   const [adjSaving, setAdjSaving] = useState(false);
   const [adjError, setAdjError] = useState("");
+  const [showAdjScanner, setShowAdjScanner] = useState(false);
+  const [adjScannedCode, setAdjScannedCode] = useState("");
 
   const [availSearch, setAvailSearch] = useState("");
   const [availSort, setAvailSort] = useState<SortOption>("name-asc");
@@ -464,6 +469,61 @@ export default function Inventory() {
 
   const selectedPart = parts.find((p) => p.part_id === adjPart);
   const adjQtyNum = parseInt(adjQty) || 0;
+
+  const handleBarcodeConfirmed = async (part: Part) => {
+    const qty = parseInt(adjQty) || 0;
+
+    if (qty <= 0) {
+      setAdjError("Quantity must be greater than zero.");
+      return false;
+    }
+
+    if (adjType === "out" && qty > part.quantity) {
+      setAdjError(
+        `Cannot remove ${qty} units. Only ${part.quantity} in stock.`,
+      );
+      return false;
+    }
+
+    setAdjError("");
+    setAdjSaving(true);
+    try {
+      if (adjType === "in") {
+        await receiveStock({
+          part_id: part.part_id,
+          quantity: qty,
+          cost_per_unit: Number(part.cost_price) || 0,
+          markup_percent: Number(part.markup_percent) || 0,
+          supplier: part.supplier || undefined,
+        });
+        showToast(`Added ${qty} unit(s) to "${part.name}".`, "success");
+      } else {
+        await adjustStock({
+          part_id: part.part_id,
+          type: "out",
+          quantity: qty,
+          reason: adjReason,
+          notes: adjNotes || undefined,
+        });
+        showToast(`Removed ${qty} unit(s) from "${part.name}".`, "success");
+      }
+
+      setAdjMode("existing");
+      setAdjPart(part.part_id);
+      setAdjScannedCode(part.part_number);
+      setAdjQty("1");
+      setAdjNotes("");
+      await fetchParts();
+      return true;
+    } catch (err: any) {
+      setAdjError(
+        err.response?.data?.message || "Failed to apply adjustment.",
+      );
+      return false;
+    } finally {
+      setAdjSaving(false);
+    }
+  };
 
   const handleAdjustSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -1345,17 +1405,37 @@ export default function Inventory() {
                   </button>
                 </div>
 
+                <div className="adj-scan-row">
+                  <button
+                    type="button"
+                    className="btn-secondary adj-scan-btn"
+                    onClick={() => {
+                      setAdjError("");
+                      setShowAdjScanner(true);
+                    }}
+                  >
+                    <Camera size={15} /> Scan Barcode
+                  </button>
+                  {adjScannedCode && (
+                    <span className="adj-scan-status">
+                      <CheckCircle2 size={14} /> Scanned:{" "}
+                      <strong>{adjScannedCode}</strong>
+                    </span>
+                  )}
+                </div>
+
                 <form onSubmit={handleAdjustSubmit} className="adj-form">
                   {adjMode === "existing" ? (
                     <div className="adj-group">
                       <label>Part</label>
                       <select
                         value={adjPart}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setAdjPart(
                             e.target.value ? Number(e.target.value) : "",
-                          )
-                        }
+                          );
+                          setAdjScannedCode("");
+                        }}
                         className="adj-select"
                         required
                       >
@@ -2793,6 +2873,18 @@ export default function Inventory() {
           </div>
         </div>
       )}
+
+      <BarcodeScannerModal
+        open={showAdjScanner}
+        onClose={() => setShowAdjScanner(false)}
+        parts={parts}
+        onConfirm={handleBarcodeConfirmed}
+        closeOnConfirm
+        title="Scan Part Barcode"
+        confirmLabel={adjType === "in" ? "Add to stock" : "Apply adjustment"}
+        confirmHint={`This will ${adjType === "in" ? "add" : "remove"} ${adjQtyNum || 0} unit(s) ${adjType === "in" ? "to" : "from"} the current stock.`}
+        error={adjError}
+      />
 
       {toast && (
         <Toast

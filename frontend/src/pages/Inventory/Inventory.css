@@ -1565,3 +1565,48 @@ textarea.adj-input {
     font-size: 13px;
   }
 }
+
+/* ============================================================
+   STOCK ADJUSTMENT — BARCODE SCAN
+   ============================================================ */
+
+.adj-scan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: -4px 0 20px 0;
+}
+
+.adj-scan-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.adj-scan-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #0f6b5c;
+  background: #e7f6ef;
+  border-radius: 9999px;
+  padding: 5px 10px;
+}
+
+.adj-scan-status strong {
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .adj-scan-row {
+    margin-bottom: 16px;
+  }
+
+  .adj-scan-btn {
+    width: 100%;
+  }
+}
