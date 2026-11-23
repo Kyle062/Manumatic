@@ -14,15 +14,7 @@ const api = axios.create({
   },
 });
 
-// Python Analytics API (Reports only)
-const pythonApi = axios.create({
-  baseURL: PYTHON_API_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-// Attach JWT token to BOTH instances
+// Attach JWT token to API requests
 const attachToken = (config: any) => {
   const token = localStorage.getItem("token");
   if (token) {
@@ -32,9 +24,6 @@ const attachToken = (config: any) => {
 };
 
 api.interceptors.request.use(attachToken, (error) => Promise.reject(error));
-pythonApi.interceptors.request.use(attachToken, (error) =>
-  Promise.reject(error),
-);
 
 api.interceptors.response.use(
   (response) => response,
@@ -45,23 +34,6 @@ api.interceptors.response.use(
     if (status === 401 || status === 403) {
       console.warn(
         `Auth error on ${url} (${status}):`,
-        error.response?.data?.message || "No message",
-      );
-    }
-
-    return Promise.reject(error);
-  },
-);
-
-pythonApi.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const status = error.response?.status;
-    const url = error.config?.url || "";
-
-    if (status === 401 || status === 403) {
-      console.warn(
-        `Auth error on Python API ${url} (${status}):`,
         error.response?.data?.message || "No message",
       );
     }
@@ -378,7 +350,10 @@ export const checkout = async (data: {
 };
 
 // ============================================================
-// REPORTS (Switched to Python API)
+// REPORTS
+// These use the Node API. The Python API is reserved for the
+// barcode scanner — its report endpoints can hang indefinitely,
+// which left Sales Overview and Top Movers stuck on "Loading...".
 // ============================================================
 
 export const getSalesOverview = async (range: string = "today") => {
@@ -386,7 +361,7 @@ export const getSalesOverview = async (range: string = "today") => {
     await delay(300);
     return { data: {} };
   }
-  return pythonApi.get(`/reports/sales-overview?range=${range}`);
+  return api.get(`/reports/sales-overview?range=${range}`);
 };
 
 export const getInventoryValuation = async () => {
@@ -402,7 +377,7 @@ export const getTopMovers = async (limit: number = 5) => {
     await delay(300);
     return { data: { top: [], slow: [] } };
   }
-  return pythonApi.get(`/reports/top-movers?limit=${limit}`);
+  return api.get(`/reports/top-movers?limit=${limit}`);
 };
 
 export const getReorderPriority = async () => {
