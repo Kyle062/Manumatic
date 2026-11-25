@@ -10,6 +10,7 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
+  connectTimeout: 10000,
   timezone: "+08:00",
   dateStrings: false,
 });
@@ -39,9 +40,16 @@ export const testConnection = async (): Promise<void> => {
     console.log(
       `✅ MySQL connected to "${env.DB_NAME}" at ${env.DB_HOST}:${env.DB_PORT}`,
     );
-  } catch (error) {
-    console.error("❌ MySQL connection failed:", error);
-    process.exit(1);
+  } catch (error: any) {
+    console.error(
+      `❌ MySQL connection failed (${error?.code || "unknown"}): ${error?.message || error}`,
+    );
+    if (env.NODE_ENV === "production") {
+      process.exit(1);
+    }
+    console.warn(
+      "⚠️  Starting without a database; DB-backed routes will fail until MySQL is available.",
+    );
   }
 };
 

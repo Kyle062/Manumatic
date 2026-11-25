@@ -1,5 +1,5 @@
 import axios from "axios";
-import { User, Part, Sale, DashboardStats, LoginResponse } from "../types";
+import { User, Part, DashboardStats, LoginResponse } from "../types";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -310,24 +310,6 @@ export const toggleUserActive = async (id: number, is_active: boolean) => {
   }
 
   return api.put(`/users/${id}/active`, { is_active });
-};
-
-export const getAllSales = async () => {
-  if (USE_MOCK) {
-    await delay(300);
-    return { data: [] };
-  }
-
-  return api.get("/sales");
-};
-
-export const createSale = async (saleData: any) => {
-  if (USE_MOCK) {
-    await delay(300);
-    return { data: { message: "Mock mode: use real backend.", sale: null } };
-  }
-
-  return api.post("/sales", saleData);
 };
 
 export const checkout = async (data: {

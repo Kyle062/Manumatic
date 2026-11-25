@@ -1,6 +1,12 @@
 fastapi
 uvicorn
-pandas
-mysql-connector-python
-sqlalchemy
 pydantic
+python-dotenv
+pandas
+sqlalchemy
+pymysql
+pytz
+opencv-python
+pyzbar
+pillow
+python-barcode

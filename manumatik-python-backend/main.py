@@ -19,3 +19,7 @@ app.include_router(scanner_module.router, prefix="/api/scanner", tags=["Scanner"
 @app.get("/")
 def read_root():
     return {"message": "Manumatik Python Backend is running!"}
+
+@app.get("/health")
+def health():
+    return {"status": "OK", "service": "Manumatik Python API"}

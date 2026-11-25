@@ -32,28 +32,49 @@ modules can be added as its own route/page/service without restructuring later:
 
 ## Getting started
 
+Prerequisites: MySQL with a `manumatik` database (the schema is not yet in this repo).
+
+Run all three services from the repo root:
+```
+npm install
+npm start        # Python :8000, Node API :5000, React :5173
+```
+
+Or start them individually:
+
+### Python scanner/analytics service
+```
+cd manumatik-python-backend
+python -m venv venv
+pip install -r requirements.txt
+python -m uvicorn main:app --reload --port 8000
+```
+
 ### Backend
 ```
 cd backend
 npm install
-npm run dev        # starts the API on http://localhost:4000
+cp .env.example .env
+npm run dev      # starts the API on http://localhost:5000
 ```
 
 ### Frontend
 ```
 cd frontend
 npm install
-npm run dev         # starts the app on http://localhost:5173
+cp .env.example .env
+npm run dev      # starts the app on http://localhost:5173
 ```
 
 ## Status
 
 - [x] Project scaffold
-- [x] Login page (frontend) + `/api/auth/login` stub (backend)
-- [ ] Dashboard / role-based routing
-- [ ] Inventory module
-- [ ] Sales / POS module
+- [x] Login (JWT/bcrypt) + role-based authorization (Admin, Manager)
+- [x] Dashboard with KPIs, charts, transactions, and low-stock alerts
+- [x] Inventory module (parts, search, stock adjust/receive, barcode labels)
+- [x] Sales / POS module (cart, 12% VAT, cash checkout, receipts)
+- [x] Reports module (sales, valuation, movers, reorder, forecast, cashiers)
+- [x] Python barcode scanner service and camera feed
 - [ ] Customer orders module
-- [ ] Reports module
 
-Say "next" any time to keep building the next piece.
+See `DEFENSE_STUDY_GUIDE.md` for a detailed walkthrough of the implemented flows.

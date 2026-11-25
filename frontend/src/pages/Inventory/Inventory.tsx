@@ -39,6 +39,7 @@ import {
   resetUserPassword,
   toggleUserActive,
   receiveStock,
+  PYTHON_API_URL,
 } from "../../services/api";
 import { Part } from "../../types";
 
@@ -394,7 +395,7 @@ export default function Inventory() {
         await createPart(form);
         showToast(`"${form.name}" was added to the catalog.`, "success");
 
-        const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(form.part_number)}&name=${encodeURIComponent(form.name)}&price=${form.price}`;
+        const barcodeUrl = `${PYTHON_API_URL}/reports/barcode?part_number=${encodeURIComponent(form.part_number)}&name=${encodeURIComponent(form.name)}&price=${form.price}`;
         window.open(barcodeUrl, "_blank");
       }
       await fetchParts();
@@ -581,7 +582,7 @@ export default function Inventory() {
           "success",
         );
 
-        const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(newPartNumber)}&name=${encodeURIComponent(newName)}&price=${newPrice.toFixed(2)}`;
+        const barcodeUrl = `${PYTHON_API_URL}/reports/barcode?part_number=${encodeURIComponent(newPartNumber)}&name=${encodeURIComponent(newName)}&price=${newPrice.toFixed(2)}`;
         window.open(barcodeUrl, "_blank");
 
         setAdjMode("existing");
@@ -648,7 +649,7 @@ export default function Inventory() {
             "success",
           );
 
-          const barcodeUrl = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(newPartNumberStr)}&name=${encodeURIComponent(newNameStr)}&price=${(newCost * (1 + newMarkup / 100)).toFixed(2)}`;
+          const barcodeUrl = `${PYTHON_API_URL}/reports/barcode?part_number=${encodeURIComponent(newPartNumberStr)}&name=${encodeURIComponent(newNameStr)}&price=${(newCost * (1 + newMarkup / 100)).toFixed(2)}`;
           window.open(barcodeUrl, "_blank");
         } else {
           await receiveStock({
@@ -1333,7 +1334,7 @@ export default function Inventory() {
                                   type="button"
                                   className="inv-icon-btn"
                                   onClick={() => {
-                                    const url = `http://localhost:8000/api/reports/barcode?part_number=${encodeURIComponent(part.part_number)}&name=${encodeURIComponent(part.name)}&price=${part.price}`;
+                                    const url = `${PYTHON_API_URL}/reports/barcode?part_number=${encodeURIComponent(part.part_number)}&name=${encodeURIComponent(part.name)}&price=${part.price}`;
                                     window.open(url, "_blank");
                                   }}
                                   title="Show Barcode"
