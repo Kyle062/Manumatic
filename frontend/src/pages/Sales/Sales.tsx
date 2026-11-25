@@ -732,6 +732,7 @@ export default function Sales() {
         onConfirm={handleBarcodeConfirmed}
         title="Scan Barcode"
         confirmLabel="Add to cart"
+        autoAdd
       />
 
       {toast && (
