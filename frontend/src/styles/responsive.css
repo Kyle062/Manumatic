@@ -1,0 +1,484 @@
+/* ============================================================
+   RESPONSIVE LAYER
+   ------------------------------------------------------------
+   Imported last in main.tsx so these rules override the page and
+   component stylesheets at each breakpoint. The desktop design
+   stays unchanged; this file only adapts it to the viewport.
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Elements that only exist for the mobile drawer */
+.sidebar__mobile-toggle,
+.sidebar__close,
+.sidebar__backdrop {
+  display: none;
+}
+
+/* Use the dynamic viewport height when the browser supports it
+   (accounts for mobile browser toolbars). */
+@supports (height: 100dvh) {
+  .dashboard-layout,
+  .dashboard-main,
+  .login-page,
+  .sidebar {
+    height: 100dvh;
+  }
+}
+
+/* ============================================================
+   LARGE DESKTOPS / ULTRAWIDE
+   Keep content readable instead of stretching across 2500px.
+   ============================================================ */
+
+@media (min-width: 1600px) {
+  .sidebar {
+    width: 248px;
+    min-width: 248px;
+  }
+
+  .page-header {
+    padding-inline: 40px;
+  }
+
+  .dashboard-content {
+    padding: 28px 40px;
+  }
+
+  .dashboard-content > *,
+  .rpt-body,
+  .rpt-toolbar {
+    width: 100%;
+    max-width: 1600px;
+    margin-inline: auto;
+  }
+
+  .rpt-body {
+    padding-inline: 40px;
+  }
+
+  .inv-tabs,
+  .rpt-tabs {
+    padding-inline: 40px;
+  }
+
+  .pos-products {
+    width: 100%;
+    max-width: 1800px;
+    margin-inline: auto;
+  }
+}
+
+@media (min-width: 2200px) {
+  .dashboard-content > *,
+  .rpt-body,
+  .rpt-toolbar {
+    max-width: 1900px;
+  }
+}
+
+/* ============================================================
+   STANDARD LAPTOPS / SMALL DESKTOPS
+   ============================================================ */
+
+@media (min-width: 1025px) and (max-width: 1366px) {
+  .sidebar {
+    width: 200px;
+    min-width: 200px;
+  }
+
+  .page-header {
+    padding-inline: 18px;
+  }
+
+  .dashboard-content {
+    padding: 18px;
+    gap: 18px;
+  }
+
+  .pos-layout {
+    grid-template-columns: 1fr 340px;
+  }
+
+  .pos-toolbar {
+    grid-template-columns: 1fr auto 190px;
+  }
+}
+
+/* ============================================================
+   TABLETS IN LANDSCAPE
+   ============================================================ */
+
+@media (min-width: 901px) and (max-width: 1024px) {
+  .sidebar {
+    width: 190px;
+    min-width: 190px;
+  }
+
+  .dashboard-content {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .pos-layout {
+    grid-template-columns: 1fr 320px;
+  }
+
+  .pos-toolbar {
+    grid-template-columns: 1fr auto 180px;
+  }
+}
+
+/* ============================================================
+   MOBILE & TABLET PORTRAIT  (<= 768px)
+   The sidebar becomes a slide-out drawer so user info and logout
+   remain reachable; all content scrolls inside the viewport.
+   ============================================================ */
+
+@media (max-width: 768px) {
+  /* The shell no longer reserves space for a bottom navigation bar. */
+  .dashboard-layout {
+    flex-direction: row !important;
+  }
+
+  .dashboard-main {
+    height: 100%;
+    min-width: 0;
+  }
+
+  /* --- Hamburger button --- */
+  .sidebar__mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 6px;
+    left: 12px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 10px;
+    background: #0a1a2f;
+    color: #3dd0c0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    z-index: 960;
+  }
+
+  .page-header {
+    padding-left: 62px !important;
+    padding-right: 12px !important;
+  }
+
+  /* --- Drawer --- */
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(84vw, 290px);
+    min-width: 0;
+    flex-direction: column;
+    transform: translateX(-102%);
+    transition: transform 0.25s ease;
+    border-top: none;
+    border-right: 1px solid #0f2544;
+    box-shadow: 10px 0 32px rgba(0, 0, 0, 0.35);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 1000;
+  }
+
+  .sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  /* Undo the old bottom-nav rules that hid these sections. */
+  .sidebar .sidebar__logo {
+    display: flex !important;
+    position: relative;
+  }
+
+  .sidebar .sidebar__user {
+    display: flex !important;
+  }
+
+  .sidebar .sidebar__footer {
+    display: block !important;
+  }
+
+  .sidebar .sidebar__close {
+    display: flex !important;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 6px;
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+  }
+
+  .sidebar .sidebar__nav {
+    flex: 1;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    width: 100%;
+    height: auto;
+    padding: 12px 10px;
+    gap: 4px;
+  }
+
+  .sidebar .sidebar__nav-item {
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: auto;
+    min-height: 44px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    text-align: left;
+  }
+
+  .sidebar .sidebar__nav-label {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  .sidebar .sidebar__nav-badge {
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+  }
+
+  .sidebar__backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(3, 10, 20, 0.55);
+    z-index: 980;
+    animation: sidebar-backdrop-in 0.2s ease-out;
+  }
+
+  @keyframes sidebar-backdrop-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  /* --- Scrollable content areas --- */
+  .dashboard-content,
+  .inv-content,
+  .rpt-content,
+  .pos-layout {
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .dashboard-content {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .rpt-toolbar[style*="padding"] {
+    padding: 14px 14px 0 !important;
+  }
+
+  /* POS stacks its cart under the product grid. */
+  .pos-layout {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* --- Tables scroll sideways instead of collapsing --- */
+  .inv-table-wrap,
+  .txn-scroll,
+  .rpt-card {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .inv-table,
+  .txn-table,
+  .rpt-table {
+    min-width: 520px;
+  }
+
+  /* --- Modals fit the screen --- */
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal,
+  .modal--small,
+  .modal--receipt,
+  .modal--scanner {
+    max-width: 100%;
+    max-height: calc(100vh - 20px);
+  }
+
+  /* Inputs must be >=16px or iOS Safari zooms in on focus. */
+  input,
+  select,
+  textarea,
+  .form-group input,
+  .form-group select,
+  .form-group textarea,
+  .login-field input,
+  .pos-search__input,
+  .inv-search__input,
+  .avail-toolbar__search-input,
+  .avail-toolbar__select,
+  .adj-input,
+  .adj-select {
+    font-size: 16px !important;
+  }
+
+  /* --- Login --- */
+  .login-page {
+    overflow-y: auto;
+  }
+
+  .login-form {
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
+  }
+}
+
+/* ============================================================
+   PHONES
+   ============================================================ */
+
+@media (max-width: 600px) {
+  .sidebar__mobile-toggle {
+    left: 8px;
+  }
+
+  .page-header {
+    padding-left: 56px !important;
+  }
+
+  .page-header__title {
+    font-size: 17px !important;
+  }
+
+  /* Modals become bottom sheets for easier thumb use. */
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal,
+  .modal--small,
+  .modal--receipt,
+  .modal--scanner {
+    max-width: 100%;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  .modal-header,
+  .modal-form {
+    padding-inline: 16px;
+  }
+
+  .receipt {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .sidebar__mobile-toggle {
+    left: 6px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .page-header {
+    padding-left: 50px !important;
+  }
+
+  .page-header__title {
+    font-size: 15px !important;
+  }
+
+  .inv-tab,
+  .rpt-tab {
+    font-size: 10px;
+    padding-inline: 6px;
+  }
+
+  .dashboard-content {
+    padding: 10px;
+    gap: 10px;
+  }
+}
+
+/* Short landscape phones: let the login form scroll instead of clip. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .login-page {
+    overflow-y: auto;
+  }
+
+  .login-form {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: min(520px, 94vw);
+    margin: 16px auto;
+  }
+
+  .login-mascot,
+  .login-autoparts {
+    display: none !important;
+  }
+}
+
+/* ============================================================
+   ACCESSIBILITY & PRINT
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  .sidebar,
+  .sidebar__mobile-toggle,
+  .sidebar__backdrop,
+  .page-header {
+    display: none !important;
+  }
+}

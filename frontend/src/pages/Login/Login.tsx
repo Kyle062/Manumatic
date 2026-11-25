@@ -21,15 +21,19 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const [rememberMe, setRememberMe] = useState(false);
+
   useEffect(() => {
-    if (role === "admin") {
-      setUsername("admin");
-      setPassword("admin123");
-    } else {
-      setUsername("manager");
-      setPassword("manager123");
+    const savedUsername = localStorage.getItem("rememberedUsername");
+    if (savedUsername) {
+      setUsername(savedUsername);
+      setRememberMe(true);
     }
+  }, []);
+
+  useEffect(() => {
     setError("");
+    setPassword("");
   }, [role]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -39,9 +43,16 @@ export default function Login() {
 
     try {
       const response = await loginUser(username, password, role);
+
+      if (rememberMe) {
+        localStorage.setItem("rememberedUsername", username);
+      } else {
+        localStorage.removeItem("rememberedUsername");
+      }
+
       login(response.data.user, response.data.token);
       navigate("/dashboard");
-      
+
     } catch (err: any) {
       setError(
         err.response?.data?.message || "Login failed. Please try again.",
@@ -163,6 +174,14 @@ export default function Login() {
         </div>
 
         <div className="login-forgot">
+          <label className="login-remember">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            Remember me
+          </label>
           <a
             href="#"
             onClick={(e) => {

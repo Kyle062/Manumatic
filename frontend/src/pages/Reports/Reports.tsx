@@ -16,6 +16,8 @@ import {
   ArrowDownRight,
   ShoppingCart,
   X,
+  Printer,
+  FileDown,
 } from "lucide-react";
 import {
   BarChart,
@@ -37,6 +39,9 @@ import {
   getLowStockForecast,
   getCashierPerformance,
 } from "../../services/api";
+
+// Import the logo directly so Vite bundles it
+import logoImage from "../../assets/images/Signage.png";
 import "./Reports.css";
 
 // ============================================================
@@ -80,6 +85,7 @@ export default function Reports() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<Range>("today");
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   // ---- Data ----
   const [salesData, setSalesData] = useState<any>(null);
@@ -89,13 +95,16 @@ export default function Reports() {
   const [forecastData, setForecastData] = useState<any[]>([]);
   const [cashierData, setCashierData] = useState<any[]>([]);
 
-  // ✅ State to track which day's bar was clicked
   const [selectedDay, setSelectedDay] = useState<any>(null);
+
+  // ---- Export Modal State ----
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportAction, setExportAction] = useState<"print" | "pdf">("print");
+  const [exportRanges, setExportRanges] = useState<string[]>(["today"]);
 
   // ---- Load data on tab change ----
   useEffect(() => {
     loadTab();
-    // Reset selected day when range changes
     setSelectedDay(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, range]);
@@ -162,6 +171,13 @@ export default function Reports() {
     });
   };
 
+  const getRangeLabel = (r: string) => {
+    if (r === "today") return "Today";
+    if (r === "week") return "Last 7 Days";
+    if (r === "month") return "Last 30 Days";
+    return "All Time";
+  };
+
   // ---- CSV Export ----
   const exportCSV = (filename: string, rows: any[]) => {
     if (!rows || rows.length === 0) {
@@ -169,30 +185,314 @@ export default function Reports() {
       return;
     }
 
-    const headers = Object.keys(rows[0]);
-    const csv = [
-      headers.join(","),
-      ...rows.map((r) =>
-        headers
-          .map((h) => {
-            const val = r[h];
-            if (val === null || val === undefined) return "";
-            const str = String(val).replace(/"/g, '""');
-            return `"${str}"`;
-          })
-          .join(","),
-      ),
-    ].join("\n");
+    try {
+      const headers = Object.keys(rows[0]);
+      const csv = [
+        headers.join(","),
+        ...rows.map((r) =>
+          headers
+            .map((h) => {
+              const val = r[h];
+              if (val === null || val === undefined) return "";
+              let str = String(val).replace(/"/g, '""');
+              if (
+                str.includes(",") ||
+                str.includes('"') ||
+                str.includes("\n")
+              ) {
+                return `"${str}"`;
+              }
+              return str;
+            })
+            .join(","),
+        ),
+      ].join("\n");
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${filename}-${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${filename}-${new Date().toISOString().split("T")[0]}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
 
-    showToast(`Exported ${rows.length} rows as CSV.`, "success");
+      showToast(`Exported ${rows.length} rows as CSV.`, "success");
+    } catch (err) {
+      showToast("Failed to generate CSV.", "error");
+    }
+  };
+
+  // ---- Data Aggregation for specific range ----
+  const getExportDataForRange = (targetRange: string, data: any) => {
+    if (activeTab === "sales") {
+      const displayData =
+        data?.daily?.flatMap((d: any) => d.parts_sold || []) || [];
+      const aggregatedData = Object.values(
+        displayData.reduce((acc: any, item: any) => {
+          if (!acc[item.part_id]) {
+            acc[item.part_id] = { ...item };
+          } else {
+            acc[item.part_id].quantity_sold += item.quantity_sold;
+            acc[item.part_id].revenue += item.revenue;
+          }
+          return acc;
+        }, {}),
+      );
+
+      return {
+        head: [["Part", "Part #", "Qty Sold", "Revenue"]],
+        body: aggregatedData.map((p: any) => [
+          p.name,
+          p.part_number,
+          p.quantity_sold,
+          money(p.revenue),
+        ]),
+      };
+    } else if (activeTab === "valuation") {
+      return {
+        head: [["Category", "Parts", "Units", "Value"]],
+        body:
+          data?.by_category?.map((c: any) => [
+            c.category,
+            c.part_count,
+            c.units,
+            money(c.value),
+          ]) || [],
+      };
+    } else if (activeTab === "movers") {
+      return {
+        head: [["Part", "Part #", "Sold", "Revenue"]],
+        body:
+          data?.top?.map((p: any) => [
+            p.name,
+            p.part_number,
+            p.units_sold,
+            money(p.revenue),
+          ]) || [],
+      };
+    } else if (activeTab === "reorder") {
+      return {
+        head: [["Urgency", "Part", "In Stock", "Deficit", "Restock Cost"]],
+        body:
+          data?.map((r: any) => [
+            r.urgency,
+            r.name,
+            r.quantity,
+            r.deficit,
+            money(r.restock_cost),
+          ]) || [],
+      };
+    } else if (activeTab === "forecast") {
+      return {
+        head: [["Status", "Part", "In Stock", "Daily Sales", "Days"]],
+        body:
+          data?.map((f: any) => [
+            f.stockout_status,
+            f.name,
+            f.current_stock,
+            f.avg_daily_sales,
+            f.days_until_stockout,
+          ]) || [],
+      };
+    } else if (activeTab === "cashier") {
+      return {
+        head: [["Cashier", "Role", "Sales", "Revenue"]],
+        body:
+          data?.map((c: any) => [
+            c.name,
+            c.role,
+            c.total_sales,
+            money(c.total_revenue),
+          ]) || [],
+      };
+    }
+    return { head: [], body: [] };
+  };
+
+  // Helper to fetch data dynamically for the export
+  const fetchDataForRange = async (r: string) => {
+    if (activeTab === "sales") {
+      const actualRange = r === "all" ? "month" : r;
+      const res = await getSalesOverview(actualRange as Range);
+      return res.data;
+    } else if (activeTab === "valuation") return valuationData;
+    else if (activeTab === "movers") return moversData;
+    else if (activeTab === "reorder") return reorderData;
+    else if (activeTab === "forecast") return forecastData;
+    else if (activeTab === "cashier") return cashierData;
+    return null;
+  };
+
+  // ---- Print Logic ----
+  const executePrint = async () => {
+    setShowExportModal(false);
+    const win = window.open("", "_blank");
+    if (!win) {
+      showToast("Please allow pop-ups to print.", "error");
+      return;
+    }
+
+    let htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Report - ${activeTab.toUpperCase()}</title>
+        <style>
+          body { font-family: sans-serif; padding: 40px; color: #111827; }
+          .page-break { page-break-after: always; }
+          .header { display: flex; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #0f6b5c; padding-bottom: 20px; }
+          .logo { height: 50px; margin-right: 20px; object-fit: contain; }
+          h2 { color: #0f6b5c; margin: 0; }
+          .meta { color: #6b7280; font-size: 14px; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; font-size: 13px; }
+          th { background-color: #f3f4f6; text-align: left; padding: 10px; border-bottom: 2px solid #e5e7eb; text-transform: uppercase; font-size: 11px; }
+          td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
+          .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #9ca3af; }
+        </style>
+      </head>
+      <body>
+    `;
+
+    for (const r of exportRanges) {
+      const data = await fetchDataForRange(r);
+      const { head, body } = getExportDataForRange(r, data);
+      const headHTML = head[0].map((h: string) => `<th>${h}</th>`).join("");
+      const bodyHTML = body
+        .map(
+          (row: any) =>
+            `<tr>${row.map((cell: any) => `<td>${cell}</td>`).join("")}</tr>`,
+        )
+        .join("");
+
+      htmlContent += `
+        <div class="page-break">
+          <div class="header">
+            <img src="${logoImage}" class="logo" alt="Logo" />
+            <h2>Report: ${activeTab.toUpperCase()} (${getRangeLabel(r)})</h2>
+          </div>
+          <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+          <table>
+            <thead><tr>${headHTML}</tr></thead>
+            <tbody>${bodyHTML}</tbody>
+          </table>
+          <div class="footer">Manumatik Auto Parts Center</div>
+        </div>
+      `;
+    }
+
+    htmlContent += `</body></html>`;
+
+    win.document.open();
+    win.document.write(htmlContent);
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 500);
+  };
+
+  // ---- PDF Export Logic ----
+  const executeExportPDF = async () => {
+    setShowExportModal(false);
+    setPdfGenerating(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4",
+      });
+
+      // Load Font for ₱ symbol
+      const fontUrl = "/fonts/Roboto.ttf";
+      const response = await fetch(fontUrl);
+      if (!response.ok) throw new Error("Font file not found in public folder");
+
+      const fontBuffer = await response.arrayBuffer();
+      let fontBinary = "";
+      const fontBytes = new Uint8Array(fontBuffer);
+      for (let i = 0; i < fontBytes.byteLength; i++) {
+        fontBinary += String.fromCharCode(fontBytes[i]);
+      }
+
+      doc.addFileToVFS("Roboto.ttf", fontBinary);
+      doc.addFont("Roboto.ttf", "Roboto", "normal");
+      doc.setFont("Roboto");
+
+      let isFirstPage = true;
+
+      for (const r of exportRanges) {
+        const data = await fetchDataForRange(r);
+        const { head, body } = getExportDataForRange(r, data);
+
+        if (!isFirstPage) {
+          doc.addPage();
+        }
+        isFirstPage = false;
+
+        // Load Logo dynamically
+        try {
+          const img = new Image();
+          img.src = logoImage;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          // Since jsPDF expects an HTMLImageElement or base64, we pass the imported URL
+          doc.addImage(img, "PNG", 40, 30, 80, 30);
+        } catch (err) {
+          console.warn("Logo not found, skipping.");
+        }
+
+        doc.setFontSize(16);
+        doc.setTextColor(15, 107, 92);
+        doc.text(
+          `Report: ${activeTab.toUpperCase()} (${getRangeLabel(r)})`,
+          130,
+          45,
+        );
+
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 130, 60);
+
+        autoTable(doc, {
+          head,
+          body,
+          startY: 90,
+          styles: { font: "Roboto", fontSize: 9, cellPadding: 5 },
+          headStyles: { fillColor: [15, 107, 92], textColor: 255 },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          margin: { left: 40, right: 40 },
+          didDrawPage: () => {
+            doc.setFont("Roboto");
+            doc.setFontSize(8);
+            doc.setTextColor(156, 163, 175);
+            doc.text(
+              "Manumatik Auto Parts Center",
+              40,
+              doc.internal.pageSize.getHeight() - 20,
+            );
+            doc.text(
+              `Page ${doc.internal.pages.length - 1}`,
+              doc.internal.pageSize.getWidth() - 60,
+              doc.internal.pageSize.getHeight() - 20,
+            );
+          },
+        });
+      }
+
+      doc.save(
+        `report-${activeTab}-${new Date().toISOString().slice(0, 10)}.pdf`,
+      );
+      showToast("PDF exported successfully.", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to export PDF.", "error");
+    } finally {
+      setPdfGenerating(false);
+    }
   };
 
   // ============================================================
@@ -202,11 +502,9 @@ export default function Reports() {
   return (
     <div className="dashboard-layout">
       <Sidebar />
-
       <div className="dashboard-main">
         <Header title="Reports" />
-
-        <div className="rpt-content">
+        <div className="rpt-content fade-in">
           {/* TABS */}
           <div className="rpt-tabs">
             {(
@@ -235,52 +533,92 @@ export default function Reports() {
             ))}
           </div>
 
+          {/* GLOBAL TOOLBAR */}
+          <div className="rpt-toolbar" style={{ padding: "24px 24px 0 24px" }}>
+            <div className="rpt-range">
+              {(["today", "week", "month"] as Range[]).map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  className={`rpt-range__btn ${range === r ? "is-active" : ""}`}
+                  onClick={() => setRange(r)}
+                  disabled={activeTab !== "sales"} // Only applicable to sales
+                  style={{ opacity: activeTab !== "sales" ? 0.5 : 1 }}
+                >
+                  {r === "today"
+                    ? "Today"
+                    : r === "week"
+                      ? "Last 7 Days"
+                      : "Last 30 Days"}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                type="button"
+                className="rpt-export"
+                onClick={() => {
+                  const { body } = getExportDataForRange(
+                    range,
+                    activeTab === "sales" ? salesData : {},
+                  );
+                  exportCSV(
+                    `report-${activeTab}-${range}`,
+                    body.map((row: any[]) =>
+                      Object.fromEntries(
+                        row.map((val: any, i: number) => [
+                          getExportDataForRange(
+                            range,
+                            activeTab === "sales" ? salesData : {},
+                          ).head[0][i],
+                          val,
+                        ]),
+                      ),
+                    ),
+                  );
+                }}
+              >
+                <Download size={14} /> Export CSV
+              </button>
+              <button
+                type="button"
+                className="rpt-export"
+                onClick={() => {
+                  setExportAction("print");
+                  setShowExportModal(true);
+                }}
+              >
+                <Printer size={14} /> Print
+              </button>
+              <button
+                type="button"
+                className="rpt-export"
+                onClick={() => {
+                  setExportAction("pdf");
+                  setShowExportModal(true);
+                }}
+                disabled={pdfGenerating}
+              >
+                <FileDown size={14} />{" "}
+                {pdfGenerating ? "Exporting..." : "Export PDF"}
+              </button>
+            </div>
+          </div>
+
           {/* ============================================================
               TAB: SALES OVERVIEW
               ============================================================ */}
           {activeTab === "sales" && (
-            <div className="rpt-body">
-              <div className="rpt-toolbar">
-                <div className="rpt-range">
-                  {(["today", "week", "month"] as Range[]).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      className={`rpt-range__btn ${
-                        range === r ? "is-active" : ""
-                      }`}
-                      onClick={() => setRange(r)}
-                    >
-                      {r === "today"
-                        ? "Today"
-                        : r === "week"
-                          ? "Last 7 Days"
-                          : "Last 30 Days"}
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  className="rpt-export"
-                  onClick={() =>
-                    salesData?.daily &&
-                    exportCSV("sales-overview", salesData.daily)
-                  }
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-
+            <div className="rpt-body slide-up">
               {loading ? (
                 <div className="rpt-loading">Loading...</div>
               ) : !salesData ? (
                 <div className="rpt-empty">No data.</div>
               ) : (
                 <>
-                  <div className="rpt-kpis">
-                    <div className="rpt-kpi">
+                  <div className="rpt-kpis stagger-fade">
+                    <div className="rpt-kpi hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--green">
                         <DollarSign size={18} />
                       </div>
@@ -289,8 +627,7 @@ export default function Reports() {
                         {money(salesData.total_revenue)}
                       </div>
                     </div>
-
-                    <div className="rpt-kpi">
+                    <div className="rpt-kpi hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--blue">
                         <BarChart3 size={18} />
                       </div>
@@ -299,8 +636,7 @@ export default function Reports() {
                         {salesData.transaction_count}
                       </div>
                     </div>
-
-                    <div className="rpt-kpi">
+                    <div className="rpt-kpi hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--purple">
                         <Package size={18} />
                       </div>
@@ -309,8 +645,7 @@ export default function Reports() {
                         {salesData.unique_parts_sold}
                       </div>
                     </div>
-
-                    <div className="rpt-kpi">
+                    <div className="rpt-kpi hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--orange">
                         <Activity size={18} />
                       </div>
@@ -321,7 +656,7 @@ export default function Reports() {
                     </div>
                   </div>
 
-                  <div className="rpt-card">
+                  <div className="rpt-card hover-lift">
                     <div className="rpt-card__head">
                       <h3>Revenue Trend</h3>
                       <span className="rpt-card__hint">
@@ -332,7 +667,6 @@ export default function Reports() {
                             : "Last 30 days"}
                       </span>
                     </div>
-
                     {salesData.daily && salesData.daily.length > 0 ? (
                       <div style={{ width: "100%", height: 320 }}>
                         <ResponsiveContainer>
@@ -381,8 +715,6 @@ export default function Reports() {
                               }
                               cursor={{ fill: "rgba(15, 107, 92, 0.08)" }}
                             />
-
-                            {/* ✅ Bar Width and Outline Fixes applied here */}
                             <Bar
                               dataKey="revenue"
                               fill="#0f6b5c"
@@ -401,8 +733,7 @@ export default function Reports() {
                     )}
                   </div>
 
-                  {/* ✅ UPDATED PANEL: Shows Total Range OR Specific Day depending on selection */}
-                  <div className="rpt-card">
+                  <div className="rpt-card hover-lift">
                     <div className="rpt-card__head">
                       <h3>
                         <ShoppingCart size={16} style={{ color: "#0f6b5c" }} />
@@ -426,7 +757,6 @@ export default function Reports() {
                                 ? "Sold in last 7 days"
                                 : "Sold in last 30 days"}
                         </span>
-                        {/* Reset button to go back to viewing the whole range */}
                         {selectedDay && (
                           <button
                             className="rpt-export"
@@ -442,16 +772,12 @@ export default function Reports() {
                         )}
                       </div>
                     </div>
-
-                    {/* Determine which data to show based on whether a day is selected */}
                     {(() => {
                       const displayData = selectedDay
                         ? selectedDay.parts_sold
                         : salesData.daily?.flatMap(
                             (d: any) => d.parts_sold || [],
                           ) || [];
-
-                      // Aggregate the data if viewing the whole range (to sum up quantities across days)
                       const aggregatedData = selectedDay
                         ? displayData
                         : Object.values(
@@ -519,30 +845,15 @@ export default function Reports() {
               TAB: INVENTORY VALUATION
               ============================================================ */}
           {activeTab === "valuation" && (
-            <div className="rpt-body">
-              <div className="rpt-toolbar">
-                <div></div>
-                <button
-                  type="button"
-                  className="rpt-export"
-                  onClick={() =>
-                    valuationData?.by_category &&
-                    exportCSV("inventory-valuation", valuationData.by_category)
-                  }
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-
+            <div className="rpt-body slide-up">
               {loading ? (
                 <div className="rpt-loading">Loading...</div>
               ) : !valuationData ? (
                 <div className="rpt-empty">No data.</div>
               ) : (
                 <>
-                  <div className="rpt-kpis">
-                    <div className="rpt-kpi">
+                  <div className="rpt-kpis stagger-fade">
+                    <div className="rpt-kpi hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--green">
                         <DollarSign size={18} />
                       </div>
@@ -552,7 +863,7 @@ export default function Reports() {
                       </div>
                     </div>
 
-                    <div className="rpt-kpi">
+                    <div className="rpt-kpi hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--blue">
                         <Package size={18} />
                       </div>
@@ -562,7 +873,7 @@ export default function Reports() {
                       </div>
                     </div>
 
-                    <div className="rpt-kpi">
+                    <div className="rpt-kpi hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--purple">
                         <BarChart3 size={18} />
                       </div>
@@ -572,7 +883,7 @@ export default function Reports() {
                       </div>
                     </div>
 
-                    <div className="rpt-kpi rpt-kpi--warn">
+                    <div className="rpt-kpi rpt-kpi--warn hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--red">
                         <AlertTriangle size={18} />
                       </div>
@@ -584,8 +895,7 @@ export default function Reports() {
                   </div>
 
                   <div className="rpt-row-2">
-                    {/* ENHANCED PIE CHART */}
-                    <div className="rpt-card">
+                    <div className="rpt-card hover-lift">
                       <div className="rpt-card__head">
                         <h3>Value by Category</h3>
                         <span className="rpt-card__hint">
@@ -593,7 +903,6 @@ export default function Reports() {
                         </span>
                       </div>
 
-                      {/* Legend grid ABOVE the chart for clarity */}
                       <div className="rpt-pie-legend">
                         {valuationData.by_category.map(
                           (c: any, idx: number) => {
@@ -627,7 +936,6 @@ export default function Reports() {
                         )}
                       </div>
 
-                      {/* Pie with center label */}
                       <div className="rpt-pie-wrap">
                         <div style={{ width: "100%", height: 260 }}>
                           <ResponsiveContainer>
@@ -670,7 +978,6 @@ export default function Reports() {
                           </ResponsiveContainer>
                         </div>
 
-                        {/* Center label */}
                         <div className="rpt-pie-center">
                           <span className="rpt-pie-center__label">
                             Total Value
@@ -682,8 +989,7 @@ export default function Reports() {
                       </div>
                     </div>
 
-                    {/* BREAKDOWN TABLE */}
-                    <div className="rpt-card">
+                    <div className="rpt-card hover-lift">
                       <div className="rpt-card__head">
                         <h3>Breakdown</h3>
                         <span className="rpt-card__hint">By category</span>
@@ -738,28 +1044,14 @@ export default function Reports() {
               TAB: TOP MOVERS
               ============================================================ */}
           {activeTab === "movers" && (
-            <div className="rpt-body">
-              <div className="rpt-toolbar">
-                <div></div>
-                <button
-                  type="button"
-                  className="rpt-export"
-                  onClick={() =>
-                    moversData?.top && exportCSV("top-sellers", moversData.top)
-                  }
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-
+            <div className="rpt-body slide-up">
               {loading ? (
                 <div className="rpt-loading">Loading...</div>
               ) : !moversData ? (
                 <div className="rpt-empty">No data.</div>
               ) : (
                 <div className="rpt-row-2">
-                  <div className="rpt-card">
+                  <div className="rpt-card hover-lift">
                     <div className="rpt-card__head">
                       <h3>
                         <ArrowUpRight size={16} style={{ color: "#0f6b5c" }} />
@@ -804,7 +1096,7 @@ export default function Reports() {
                     )}
                   </div>
 
-                  <div className="rpt-card">
+                  <div className="rpt-card hover-lift">
                     <div className="rpt-card__head">
                       <h3>
                         <ArrowDownRight
@@ -866,30 +1158,7 @@ export default function Reports() {
               TAB: REORDER PRIORITY
               ============================================================ */}
           {activeTab === "reorder" && (
-            <div className="rpt-body">
-              <div className="rpt-toolbar">
-                <div className="rpt-summary-text">
-                  <AlertTriangle size={14} />
-                  <span>
-                    {reorderData.length} part(s) need reordering · Total restock
-                    cost:{" "}
-                    <strong>
-                      {money(
-                        reorderData.reduce((s, r) => s + r.restock_cost, 0),
-                      )}
-                    </strong>
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="rpt-export"
-                  onClick={() => exportCSV("reorder-priority", reorderData)}
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-
+            <div className="rpt-body slide-up">
               {loading ? (
                 <div className="rpt-loading">Loading...</div>
               ) : reorderData.length === 0 ? (
@@ -897,7 +1166,7 @@ export default function Reports() {
                   ✅ All parts are sufficiently stocked.
                 </div>
               ) : (
-                <div className="rpt-card">
+                <div className="rpt-card hover-lift">
                   <table className="rpt-table">
                     <thead>
                       <tr>
@@ -954,26 +1223,7 @@ export default function Reports() {
               TAB: STOCK FORECAST
               ============================================================ */}
           {activeTab === "forecast" && (
-            <div className="rpt-body">
-              <div className="rpt-toolbar">
-                <div className="rpt-summary-text">
-                  <Clock size={14} />
-                  <span>
-                    Based on 30-day sales velocity ·{" "}
-                    <strong>{forecastData.length}</strong> part(s) may run out
-                    soon
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  className="rpt-export"
-                  onClick={() => exportCSV("stock-forecast", forecastData)}
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-
+            <div className="rpt-body slide-up">
               {loading ? (
                 <div className="rpt-loading">Loading...</div>
               ) : forecastData.length === 0 ? (
@@ -981,7 +1231,7 @@ export default function Reports() {
                   ✅ No parts at immediate risk of stockout.
                 </div>
               ) : (
-                <div className="rpt-card">
+                <div className="rpt-card hover-lift">
                   <table className="rpt-table">
                     <thead>
                       <tr>
@@ -1036,25 +1286,13 @@ export default function Reports() {
               TAB: CASHIER PERFORMANCE
               ============================================================ */}
           {activeTab === "cashier" && (
-            <div className="rpt-body">
-              <div className="rpt-toolbar">
-                <div></div>
-                <button
-                  type="button"
-                  className="rpt-export"
-                  onClick={() => exportCSV("cashier-performance", cashierData)}
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-
+            <div className="rpt-body slide-up">
               {loading ? (
                 <div className="rpt-loading">Loading...</div>
               ) : cashierData.length === 0 ? (
                 <div className="rpt-empty">No users.</div>
               ) : (
-                <div className="rpt-card">
+                <div className="rpt-card hover-lift">
                   <table className="rpt-table">
                     <thead>
                       <tr>
@@ -1078,9 +1316,7 @@ export default function Reports() {
                           </td>
                           <td className="rpt-col-role">
                             <span
-                              className={`rpt-tag rpt-tag--${
-                                c.role === "admin" ? "admin" : "manager"
-                              }`}
+                              className={`rpt-tag rpt-tag--${c.role === "admin" ? "admin" : "manager"}`}
                             >
                               {c.role}
                             </span>
@@ -1108,7 +1344,159 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* TOAST */}
+      {/* EXPORT MODAL */}
+      {showExportModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowExportModal(false)}
+        >
+          <div
+            className="modal modal--small"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Export Options - {activeTab.toUpperCase()}</h2>
+              <button
+                className="modal-close"
+                onClick={() => setShowExportModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-form">
+              <div className="reset-context">
+                Select the date range(s) you want to include in the{" "}
+                {exportAction === "pdf" ? "PDF" : "Print"} document.
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  margin: "15px 0",
+                }}
+              >
+                {activeTab === "sales" ? (
+                  <>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportRanges.includes("today")}
+                        onChange={(e) => {
+                          if (e.target.checked)
+                            setExportRanges([...exportRanges, "today"]);
+                          else
+                            setExportRanges(
+                              exportRanges.filter((r) => r !== "today"),
+                            );
+                        }}
+                      />
+                      Today
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportRanges.includes("week")}
+                        onChange={(e) => {
+                          if (e.target.checked)
+                            setExportRanges([...exportRanges, "week"]);
+                          else
+                            setExportRanges(
+                              exportRanges.filter((r) => r !== "week"),
+                            );
+                        }}
+                      />
+                      Last 7 Days
+                    </label>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportRanges.includes("month")}
+                        onChange={(e) => {
+                          if (e.target.checked)
+                            setExportRanges([...exportRanges, "month"]);
+                          else
+                            setExportRanges(
+                              exportRanges.filter((r) => r !== "month"),
+                            );
+                        }}
+                      />
+                      Last 30 Days
+                    </label>
+                  </>
+                ) : (
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={exportRanges.includes("all")}
+                      onChange={(e) => {
+                        if (e.target.checked) setExportRanges(["all"]);
+                        else setExportRanges([]);
+                      }}
+                    />
+                    All Time (Full Data)
+                  </label>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowExportModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={exportRanges.length === 0 || pdfGenerating}
+                  onClick={() => {
+                    if (exportAction === "print") executePrint();
+                    else executeExportPDF();
+                  }}
+                >
+                  {pdfGenerating
+                    ? "Generating..."
+                    : exportAction === "pdf"
+                      ? "Generate PDF"
+                      : "Print Now"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <Toast
           message={toast.message}

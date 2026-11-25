@@ -14,8 +14,6 @@ import {
   Package,
   TrendingUp,
   ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import {
   AreaChart,
@@ -37,7 +35,6 @@ import {
 import "./Dashboard.css";
 
 import DashboardImg1 from "../../assets/images/DashboardImg1.png";
-import DashboardImg2 from "../../assets/images/DashboardImg2.png";
 
 interface DashboardStats {
   todaySales: {
@@ -84,11 +81,6 @@ interface LowStockPart {
   reorder_level: number;
 }
 
-const bannerSlides = [
-  { src: DashboardImg1, alt: "Banner 1 — Car Service" },
-  { src: DashboardImg2, alt: "Banner 2 — Motorcycle Repair" },
-];
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -101,9 +93,6 @@ export default function Dashboard() {
   const [lowStock, setLowStock] = useState<LowStockPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const [slide, setSlide] = useState(0);
-  const [paused, setPaused] = useState(false);
 
   const [topRange, setTopRange] = useState<"today" | "week" | "month">("week");
 
@@ -153,18 +142,6 @@ export default function Dashboard() {
       console.error("Top selling fetch error:", err);
     }
   };
-
-  useEffect(() => {
-    if (paused) return;
-    const id = setInterval(() => {
-      setSlide((s) => (s + 1) % bannerSlides.length);
-    }, 4000);
-    return () => clearInterval(id);
-  }, [paused]);
-
-  const prevSlide = () =>
-    setSlide((s) => (s - 1 + bannerSlides.length) % bannerSlides.length);
-  const nextSlide = () => setSlide((s) => (s + 1) % bannerSlides.length);
 
   const money = (n: number) =>
     "₱" +
@@ -218,6 +195,45 @@ export default function Dashboard() {
 
   const displayRole = user?.role === "admin" ? "Admin" : "Manager";
 
+  const todayLabel = new Date().toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  const statCards = [
+    {
+      label: "Today's sales",
+      value: money(stats?.todaySales.total_sales || 0),
+      sub: `${stats?.todaySales.transaction_count || 0} transaction(s) today`,
+      icon: ShoppingCart,
+      tone: "green",
+    },
+    {
+      label: "Total transactions",
+      value: String(stats?.totalTransactions || 0),
+      sub: "All-time recorded sales",
+      icon: Receipt,
+      tone: "indigo",
+    },
+    {
+      label: "Low stock items",
+      value: String(stats?.lowStockItems || 0),
+      sub: "At or below reorder level",
+      icon: AlertTriangle,
+      tone: "amber",
+    },
+    {
+      label: "Parts in catalog",
+      value: String(stats?.partsInCatalog || 0),
+      sub: `${stats?.unitsOnHand || 0} units on hand`,
+      icon: Package,
+      tone: "blue",
+    },
+  ];
+
   if (loading) {
     return (
       <div className="dashboard-layout">
@@ -248,7 +264,7 @@ export default function Dashboard() {
                 Welcome back, {displayRole} 👋
               </h2>
               <p className="welcome-strip__sub">
-                Here's what's happening in your store today.
+                Here's what's happening in your store today · {todayLabel}
               </p>
             </div>
             <div className="welcome-strip__right">
@@ -337,47 +353,22 @@ export default function Dashboard() {
               </div>
 
               <div className="analytics-list">
-                <div className="analytics-item">
-                  <div className="analytics-item__label">Today's sales</div>
-                  <div className="analytics-item__value">
-                    {money(stats?.todaySales.total_sales || 0)}
-                  </div>
-                  <div className="analytics-item__sub">
-                    {stats?.todaySales.transaction_count || 0} transaction(s)
-                  </div>
-                </div>
-
-                <div className="analytics-item">
-                  <div className="analytics-item__label">
-                    Total transactions
-                  </div>
-                  <div className="analytics-item__value">
-                    {stats?.totalTransactions || 0}
-                  </div>
-                  <div className="analytics-item__sub">
-                    All-time recorded sales
-                  </div>
-                </div>
-
-                <div className="analytics-item">
-                  <div className="analytics-item__label">Low stock items</div>
-                  <div className="analytics-item__value">
-                    {stats?.lowStockItems || 0}
-                  </div>
-                  <div className="analytics-item__sub">
-                    At or below reorder level
-                  </div>
-                </div>
-
-                <div className="analytics-item">
-                  <div className="analytics-item__label">Parts in catalog</div>
-                  <div className="analytics-item__value">
-                    {stats?.partsInCatalog || 0}
-                  </div>
-                  <div className="analytics-item__sub">
-                    {stats?.unitsOnHand || 0} units on hand
-                  </div>
-                </div>
+                {statCards.map((stat) => {
+                  const Icon = stat.icon;
+                  return (
+                    <div
+                      className={`analytics-item analytics-item--${stat.tone}`}
+                      key={stat.label}
+                    >
+                      <span className="analytics-item__icon">
+                        <Icon size={16} />
+                      </span>
+                      <span className="analytics-item__label">{stat.label}</span>
+                      <span className="analytics-item__value">{stat.value}</span>
+                      <span className="analytics-item__sub">{stat.sub}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -526,55 +517,24 @@ export default function Dashboard() {
                 })}
               </div>
 
-              <div
-                className="banner-carousel"
-                onMouseEnter={() => setPaused(true)}
-                onMouseLeave={() => setPaused(false)}
-              >
-                <div
-                  className="banner-carousel__track"
-                  style={{ transform: `translateX(-${slide * 100}%)` }}
-                >
-                  {bannerSlides.map((b, i) => (
-                    <div className="banner-carousel__slide" key={i}>
-                      <img
-                        src={b.src}
-                        alt={b.alt}
-                        className="banner-carousel__img"
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  type="button"
-                  className="banner-carousel__nav banner-carousel__nav--prev"
-                  onClick={prevSlide}
-                  aria-label="Previous slide"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <button
-                  type="button"
-                  className="banner-carousel__nav banner-carousel__nav--next"
-                  onClick={nextSlide}
-                  aria-label="Next slide"
-                >
-                  <ChevronRight size={16} />
-                </button>
-
-                <div className="banner-carousel__dots">
-                  {bannerSlides.map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      className={`banner-carousel__dot ${
-                        slide === i ? "is-active" : ""
-                      }`}
-                      onClick={() => setSlide(i)}
-                      aria-label={`Go to slide ${i + 1}`}
-                    />
-                  ))}
+              <div className="dash-promo">
+                <img
+                  src={DashboardImg1}
+                  alt="Manumatik Auto Parts Center service banner"
+                  className="dash-promo__img"
+                />
+                <div className="dash-promo__overlay">
+                  <span className="dash-promo__tag">Always ready to serve</span>
+                  <p className="dash-promo__text">
+                    Quality auto parts, right when you need them.
+                  </p>
+                  <button
+                    type="button"
+                    className="dash-promo__cta"
+                    onClick={() => navigate("/inventory")}
+                  >
+                    Manage stock <ArrowRight size={13} />
+                  </button>
                 </div>
               </div>
             </div>

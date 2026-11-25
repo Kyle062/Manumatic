@@ -4,6 +4,7 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Toast, { ToastType } from "../../components/Toast";
 import ConfirmDialog from "../../components/ConfirmDialog";
+import BarcodeScannerModal from "../../components/BarcodeScannerModal";
 import {
   Search,
   Plus,
@@ -23,6 +24,9 @@ import {
   ArrowDownToLine,
   Printer,
   Barcode,
+  FileDown,
+  Camera,
+  CheckCircle2,
 } from "lucide-react";
 import {
   getAllParts,
@@ -37,6 +41,9 @@ import {
   receiveStock,
 } from "../../services/api";
 import { Part } from "../../types";
+
+// Import the logo directly so Vite bundles it
+import logoImage from "../../assets/images/Signage.png";
 import "./Inventory.css";
 
 type Tab = "catalog" | "adjustments" | "availability" | "settings";
@@ -160,6 +167,8 @@ export default function Inventory() {
 
   const [adjSaving, setAdjSaving] = useState(false);
   const [adjError, setAdjError] = useState("");
+  const [showAdjScanner, setShowAdjScanner] = useState(false);
+  const [adjScannedCode, setAdjScannedCode] = useState("");
 
   const [availSearch, setAvailSearch] = useState("");
   const [availSort, setAvailSort] = useState<SortOption>("name-asc");
@@ -198,6 +207,17 @@ export default function Inventory() {
 
   const [toggleTarget, setToggleTarget] = useState<AppUser | null>(null);
   const [togglingActive, setTogglingActive] = useState(false);
+
+  // Print / PDF state
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printOptions, setPrintOptions] = useState({
+    includeSupplier: true,
+    includeCategory: true,
+    includePrice: true,
+    includeStock: true,
+    includeReorder: true,
+  });
+  const [pdfGenerating, setPdfGenerating] = useState(false);
 
   const existingCategories = useMemo(() => {
     const set = new Set(parts.map((p) => p.category));
@@ -449,6 +469,61 @@ export default function Inventory() {
 
   const selectedPart = parts.find((p) => p.part_id === adjPart);
   const adjQtyNum = parseInt(adjQty) || 0;
+
+  const handleBarcodeConfirmed = async (part: Part) => {
+    const qty = parseInt(adjQty) || 0;
+
+    if (qty <= 0) {
+      setAdjError("Quantity must be greater than zero.");
+      return false;
+    }
+
+    if (adjType === "out" && qty > part.quantity) {
+      setAdjError(
+        `Cannot remove ${qty} units. Only ${part.quantity} in stock.`,
+      );
+      return false;
+    }
+
+    setAdjError("");
+    setAdjSaving(true);
+    try {
+      if (adjType === "in") {
+        await receiveStock({
+          part_id: part.part_id,
+          quantity: qty,
+          cost_per_unit: Number(part.cost_price) || 0,
+          markup_percent: Number(part.markup_percent) || 0,
+          supplier: part.supplier || undefined,
+        });
+        showToast(`Added ${qty} unit(s) to "${part.name}".`, "success");
+      } else {
+        await adjustStock({
+          part_id: part.part_id,
+          type: "out",
+          quantity: qty,
+          reason: adjReason,
+          notes: adjNotes || undefined,
+        });
+        showToast(`Removed ${qty} unit(s) from "${part.name}".`, "success");
+      }
+
+      setAdjMode("existing");
+      setAdjPart(part.part_id);
+      setAdjScannedCode(part.part_number);
+      setAdjQty("1");
+      setAdjNotes("");
+      await fetchParts();
+      return true;
+    } catch (err: any) {
+      setAdjError(
+        err.response?.data?.message || "Failed to apply adjustment.",
+      );
+      return false;
+    } finally {
+      setAdjSaving(false);
+    }
+  };
 
   const handleAdjustSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -838,8 +913,21 @@ export default function Inventory() {
     return list;
   }, [parts, search, nameSort, priceSort, stockSort]);
 
+  // Native browser Intl formatting for UI
   const money = (n: number) =>
-    "₱" + n.toLocaleString("en-PH", { minimumFractionDigits: 2 });
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
+    }).format(n);
+
+  // Same Intl formatter for Print/PDF
+  const formatPeso = (n: number) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      minimumFractionDigits: 2,
+    }).format(n);
 
   const getCategoryClass = (category: string) => {
     const c = category.toLowerCase();
@@ -863,8 +951,204 @@ export default function Inventory() {
     });
   };
 
+  // Build print HTML with UTF-8 charset and logo
+  const buildPrintHTML = () => {
+    const rows = filtered
+      .map(
+        (p) => `
+        <tr>
+          <td>${p.part_number}</td>
+          <td>${p.name}</td>
+          ${printOptions.includeSupplier ? `<td>${p.supplier || "-"}</td>` : ""}
+          ${printOptions.includeCategory ? `<td>${p.category}</td>` : ""}
+          ${printOptions.includePrice ? `<td style="text-align:right">${formatPeso(p.price)}</td>` : ""}
+          ${printOptions.includeStock ? `<td style="text-align:right">${p.quantity}</td>` : ""}
+          ${printOptions.includeReorder ? `<td style="text-align:right">${p.reorder_level}</td>` : ""}
+        </tr>`,
+      )
+      .join("");
+
+    const headers = [
+      "PART #",
+      "NAME",
+      ...(printOptions.includeSupplier ? ["SUPPLIER"] : []),
+      ...(printOptions.includeCategory ? ["CATEGORY"] : []),
+      ...(printOptions.includePrice ? ["PRICE"] : []),
+      ...(printOptions.includeStock ? ["STOCK"] : []),
+      ...(printOptions.includeReorder ? ["REORDER AT"] : []),
+    ]
+      .map((h) => `<th>${h}</th>`)
+      .join("");
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Parts Catalog - ${new Date().toLocaleDateString()}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #111827; }
+    .header { display: flex; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #0f6b5c; padding-bottom: 16px; }
+    .logo { height: 50px; margin-right: 20px; object-fit: contain; }
+    h1 { font-size: 20px; margin: 0 0 4px; color: #0f6b5c; }
+    .meta { font-size: 12px; color: #6b7280; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { text-align: left; background: #f3f4f6; padding: 8px 10px; border-bottom: 2px solid #d1d5db; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+    td { padding: 7px 10px; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .footer { margin-top: 16px; font-size: 11px; color: #9ca3af; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="${logoImage}" class="logo" alt="Logo" />
+    <h1>Parts Catalog</h1>
+  </div>
+  <div class="meta">Generated: ${new Date().toLocaleString()} · ${filtered.length} part(s)</div>
+  <table>
+    <thead><tr>${headers}</tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="footer">Manumatik Auto Parts Center</div>
+</body>
+</html>`;
+  };
+
+  const handlePrint = () => {
+    const win = window.open("", "_blank");
+    if (!win) {
+      showToast("Please allow pop-ups to print.", "error");
+      return;
+    }
+    win.document.open();
+    win.document.write(buildPrintHTML());
+    win.document.close();
+    win.focus();
+    setTimeout(() => win.print(), 300);
+  };
+
+  const handleExportPDF = async () => {
+    setPdfGenerating(true);
+    try {
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4",
+      });
+
+      // 🟢 FIX: Fetch the font from your public folder and convert to binary
+      const fontUrl = "/fonts/Roboto.ttf";
+      const response = await fetch(fontUrl);
+      if (!response.ok) throw new Error("Font file not found in public folder");
+
+      const fontBuffer = await response.arrayBuffer();
+      let fontBinary = "";
+      const fontBytes = new Uint8Array(fontBuffer);
+      for (let i = 0; i < fontBytes.byteLength; i++) {
+        fontBinary += String.fromCharCode(fontBytes[i]);
+      }
+
+      // Register the font
+      doc.addFileToVFS("Roboto.ttf", fontBinary);
+      doc.addFont("Roboto.ttf", "Roboto", "normal");
+      doc.setFont("Roboto");
+
+      // Load Logo dynamically
+      try {
+        const img = new Image();
+        img.src = logoImage;
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        doc.addImage(img, "PNG", 40, 30, 80, 30);
+      } catch (err) {
+        console.warn("Logo not found, skipping.");
+      }
+
+      doc.setFontSize(16);
+      doc.setTextColor(15, 107, 92);
+      doc.text("Parts Catalog", 130, 45);
+
+      doc.setFontSize(9);
+      doc.setTextColor(107, 114, 128);
+      doc.text(
+        `Generated: ${new Date().toLocaleString()}  ·  ${filtered.length} part(s)`,
+        130,
+        60,
+      );
+
+      const head = [
+        [
+          "Part #",
+          "Name",
+          ...(printOptions.includeSupplier ? ["Supplier"] : []),
+          ...(printOptions.includeCategory ? ["Category"] : []),
+          ...(printOptions.includePrice ? ["Price"] : []),
+          ...(printOptions.includeStock ? ["Stock"] : []),
+          ...(printOptions.includeReorder ? ["Reorder At"] : []),
+        ],
+      ];
+
+      const body = filtered.map((p) => [
+        p.part_number,
+        p.name,
+        ...(printOptions.includeSupplier ? [p.supplier || "-"] : []),
+        ...(printOptions.includeCategory ? [p.category] : []),
+        ...(printOptions.includePrice ? [formatPeso(p.price)] : []),
+        ...(printOptions.includeStock ? [String(p.quantity)] : []),
+        ...(printOptions.includeReorder ? [String(p.reorder_level)] : []),
+      ]);
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: 90,
+        styles: { font: "Roboto", fontSize: 8, cellPadding: 4 },
+        headStyles: {
+          font: "Roboto",
+          fillColor: [15, 107, 92],
+          textColor: 255,
+          fontSize: 8,
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        margin: { left: 40, right: 40 },
+        didDrawPage: () => {
+          doc.setFont("Roboto");
+          doc.setFontSize(8);
+          doc.setTextColor(156, 163, 175);
+          doc.text(
+            "Manumatik Auto Parts Center",
+            40,
+            doc.internal.pageSize.getHeight() - 20,
+          );
+          doc.text(
+            `Page ${doc.internal.pages.length - 1}`,
+            doc.internal.pageSize.getWidth() - 60,
+            doc.internal.pageSize.getHeight() - 20,
+          );
+        },
+      });
+
+      doc.save(`parts-catalog-${new Date().toISOString().slice(0, 10)}.pdf`);
+      showToast("PDF exported successfully.", "success");
+    } catch (err) {
+      console.error(err);
+      showToast(
+        "Failed to export PDF. Make sure fonts/Roboto.ttf exists in your public folder.",
+        "error",
+      );
+    } finally {
+      setPdfGenerating(false);
+      setShowPrintModal(false);
+    }
+  };
+
   return (
-    <div className="dashboard-layout">
+    <div className="dashboard-layout fade-in">
       <Sidebar />
 
       <div className="dashboard-main">
@@ -892,7 +1176,7 @@ export default function Inventory() {
           </div>
 
           {activeTab === "catalog" && (
-            <>
+            <div className="slide-up">
               <div className="inv-toolbar">
                 <div className="inv-search">
                   <Search size={15} className="inv-search__icon" />
@@ -950,13 +1234,33 @@ export default function Inventory() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  className="inv-add-btn"
-                  onClick={openAddModal}
-                >
-                  <Plus size={15} /> Add part
-                </button>
+                <div className="inv-toolbar-actions">
+                  <button
+                    type="button"
+                    className="inv-add-btn inv-add-btn--ghost"
+                    onClick={() => setShowPrintModal(true)}
+                    title="Print parts catalog"
+                  >
+                    <Printer size={15} /> Print
+                  </button>
+
+                  <button
+                    type="button"
+                    className="inv-add-btn inv-add-btn--ghost"
+                    onClick={() => setShowPrintModal(true)}
+                    title="Export as PDF"
+                  >
+                    <FileDown size={15} /> Export PDF
+                  </button>
+
+                  <button
+                    type="button"
+                    className="inv-add-btn"
+                    onClick={openAddModal}
+                  >
+                    <Plus size={15} /> Add part
+                  </button>
+                </div>
               </div>
 
               {error && <div className="inv-error">{error}</div>}
@@ -969,7 +1273,7 @@ export default function Inventory() {
                     {search ? "No parts match your search." : "No parts yet."}
                   </div>
                 ) : (
-                  <table className="inv-table">
+                  <table className="inv-table stagger-fade">
                     <thead>
                       <tr>
                         <th>PART #</th>
@@ -1063,12 +1367,12 @@ export default function Inventory() {
                   </table>
                 )}
               </div>
-            </>
+            </div>
           )}
 
           {activeTab === "adjustments" && (
-            <div className="adj-layout adj-layout--centered">
-              <div className="adj-form-card">
+            <div className="adj-layout adj-layout--centered slide-up">
+              <div className="adj-form-card hover-lift">
                 <h2 className="adj-title">Stock Adjustments</h2>
 
                 <div
@@ -1101,17 +1405,37 @@ export default function Inventory() {
                   </button>
                 </div>
 
+                <div className="adj-scan-row">
+                  <button
+                    type="button"
+                    className="btn-secondary adj-scan-btn"
+                    onClick={() => {
+                      setAdjError("");
+                      setShowAdjScanner(true);
+                    }}
+                  >
+                    <Camera size={15} /> Scan Barcode
+                  </button>
+                  {adjScannedCode && (
+                    <span className="adj-scan-status">
+                      <CheckCircle2 size={14} /> Scanned:{" "}
+                      <strong>{adjScannedCode}</strong>
+                    </span>
+                  )}
+                </div>
+
                 <form onSubmit={handleAdjustSubmit} className="adj-form">
                   {adjMode === "existing" ? (
                     <div className="adj-group">
                       <label>Part</label>
                       <select
                         value={adjPart}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setAdjPart(
                             e.target.value ? Number(e.target.value) : "",
-                          )
-                        }
+                          );
+                          setAdjScannedCode("");
+                        }}
                         className="adj-select"
                         required
                       >
@@ -1454,9 +1778,9 @@ export default function Inventory() {
           )}
 
           {activeTab === "availability" && (
-            <div className="avail-layout">
+            <div className="avail-layout slide-up">
               {lowStockCount > 0 && (
-                <div className="avail-alert">
+                <div className="avail-alert hover-lift">
                   <AlertTriangle size={15} className="avail-alert__icon" />
                   <span className="avail-alert__text">
                     <strong>{lowStockCount}</strong>{" "}
@@ -1537,13 +1861,13 @@ export default function Inventory() {
               {availabilityData.length === 0 ? (
                 <div className="inv-empty">No parts match your filters.</div>
               ) : (
-                <div className="avail-list">
+                <div className="avail-list stagger-fade">
                   {availabilityData.map((part) => {
                     const outOfStock = part.quantity === 0;
                     const isLow =
                       part.quantity > 0 && part.quantity <= part.reorder_level;
                     return (
-                      <div className="avail-card" key={part.part_id}>
+                      <div className="avail-card hover-lift" key={part.part_id}>
                         <div className="avail-card__left">
                           <div className="avail-card__name">{part.name}</div>
                           <div className="avail-card__meta">
@@ -1573,8 +1897,8 @@ export default function Inventory() {
           )}
 
           {activeTab === "settings" && (
-            <div className="settings-layout">
-              <div className="settings-card">
+            <div className="settings-layout slide-up">
+              <div className="settings-card hover-lift">
                 <div className="settings-header">
                   <Store size={16} />
                   <h3>Store settings</h3>
@@ -1639,7 +1963,7 @@ export default function Inventory() {
               </div>
 
               {isAdmin && (
-                <div className="settings-card">
+                <div className="settings-card hover-lift">
                   <div className="settings-header">
                     <UsersIcon size={16} />
                     <h3>Manage users</h3>
@@ -2287,7 +2611,7 @@ export default function Inventory() {
                     onChange={(e) => setResetConfirmPassword(e.target.value)}
                     required
                     minLength={6}
-                    placeholder="Re-enter new password"
+                    placeholder="Confirm new password"
                     autoComplete="new-password"
                   />
                   <button
@@ -2329,43 +2653,255 @@ export default function Inventory() {
         </div>
       )}
 
-      {confirmTarget && (
-        <ConfirmDialog
-          title="Delete this part?"
-          message={`"${confirmTarget.name}" (${confirmTarget.part_number}) will be permanently removed from the catalog. This action cannot be undone.`}
-          confirmLabel="Delete"
-          cancelLabel="Keep"
-          variant="danger"
-          loading={deleting}
-          onConfirm={confirmDelete}
-          onCancel={cancelDelete}
-        />
+      {toggleTarget && (
+        <div className="modal-overlay" onClick={cancelToggleActive}>
+          <div
+            className="modal modal--small"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>
+                {toggleTarget.is_active === 1 ? "Disable" : "Enable"} user
+              </h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={cancelToggleActive}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-form">
+              <div className="reset-context">
+                Are you sure you want to{" "}
+                {toggleTarget.is_active === 1 ? "disable" : "enable"}{" "}
+                <strong>{toggleTarget.name}</strong> (@
+                {toggleTarget.username})?
+                {toggleTarget.is_active === 1 && (
+                  <> They will no longer be able to log in.</>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={cancelToggleActive}
+                  disabled={togglingActive}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={confirmToggleActive}
+                  disabled={togglingActive}
+                >
+                  {togglingActive
+                    ? "Processing..."
+                    : toggleTarget.is_active === 1
+                      ? "Disable user"
+                      : "Enable user"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-      {toggleTarget && (
-        <ConfirmDialog
-          title={
-            toggleTarget.is_active === 1 ? "Disable user?" : "Enable user?"
-          }
-          message={
-            toggleTarget.is_active === 1
-              ? `"${toggleTarget.name}" (@${toggleTarget.username}) will no longer be able to log in.`
-              : `"${toggleTarget.name}" (@${toggleTarget.username}) will be able to log in again.`
-          }
-          confirmLabel={toggleTarget.is_active === 1 ? "Disable" : "Enable"}
-          cancelLabel="Cancel"
-          variant={toggleTarget.is_active === 1 ? "danger" : "default"}
-          loading={togglingActive}
-          onConfirm={confirmToggleActive}
-          onCancel={cancelToggleActive}
-        />
+      {showPrintModal && (
+        <div className="modal-overlay" onClick={() => setShowPrintModal(false)}>
+          <div
+            className="modal modal--small"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2>Print / Export Catalog</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowPrintModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-form">
+              <div className="reset-context">
+                Choose which columns to include in the printed/exported
+                document. Only the currently filtered and sorted rows will be
+                printed.
+              </div>
+
+              <div className="form-group">
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeSupplier}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeSupplier: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Supplier
+                </label>
+              </div>
+              <div className="form-group">
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeCategory}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeCategory: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Category
+                </label>
+              </div>
+              <div className="form-group">
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includePrice}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includePrice: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Price
+                </label>
+              </div>
+              <div className="form-group">
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeStock}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeStock: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Stock
+                </label>
+              </div>
+              <div className="form-group">
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    fontWeight: "normal",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={printOptions.includeReorder}
+                    onChange={(e) =>
+                      setPrintOptions((p) => ({
+                        ...p,
+                        includeReorder: e.target.checked,
+                      }))
+                    }
+                  />
+                  Include Reorder At
+                </label>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowPrintModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handlePrint}
+                >
+                  Print
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleExportPDF}
+                  disabled={pdfGenerating}
+                >
+                  {pdfGenerating ? "Generating..." : "Export PDF"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
+      <BarcodeScannerModal
+        open={showAdjScanner}
+        onClose={() => setShowAdjScanner(false)}
+        parts={parts}
+        onConfirm={handleBarcodeConfirmed}
+        closeOnConfirm
+        title="Scan Part Barcode"
+        confirmLabel={adjType === "in" ? "Add to stock" : "Apply adjustment"}
+        confirmHint={`This will ${adjType === "in" ? "add" : "remove"} ${adjQtyNum || 0} unit(s) ${adjType === "in" ? "to" : "from"} the current stock.`}
+        error={adjError}
+      />
 
       {toast && (
         <Toast
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
+        />
+      )}
+
+      {confirmTarget && (
+        <ConfirmDialog
+          title="Delete part?"
+          message={`Are you sure you want to delete "${confirmTarget.name}"? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={confirmDelete}
+          onCancel={cancelDelete}
+          loading={deleting}
         />
       )}
     </div>

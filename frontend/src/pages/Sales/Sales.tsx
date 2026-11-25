@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 import Toast, { ToastType } from "../../components/Toast";
+import BarcodeScannerModal from "../../components/BarcodeScannerModal";
 import {
   Search,
   Plus,
@@ -73,60 +74,10 @@ export default function Sales() {
   const [toast, setToast] = useState<ToastState | null>(null);
 
   const [showScanner, setShowScanner] = useState(false);
-  const [availableCameras, setAvailableCameras] = useState<
-    { id: string; name: string }[]
-  >([]);
-  const [selectedCamera, setSelectedCamera] = useState<string>("0");
 
   useEffect(() => {
     fetchParts();
   }, []);
-
-  useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-
-    if (showScanner) {
-      fetch("http://localhost:8000/api/scanner/cameras")
-        .then((res) => res.json())
-        .then((data) => {
-          setAvailableCameras(data);
-          if (data.length > 0 && !selectedCamera) {
-            setSelectedCamera(data[0].id);
-          }
-        });
-
-      fetch(
-        `http://localhost:8000/api/scanner/start?camera_id=${selectedCamera}`,
-      );
-
-      interval = setInterval(async () => {
-        try {
-          const res = await fetch("http://localhost:8000/api/scanner/poll");
-          const data = await res.json();
-
-          if (data.barcodes && data.barcodes.length > 0) {
-            data.barcodes.forEach((code: string) => {
-              const part = parts.find((p) => p.part_number === code);
-              if (part) {
-                addToCart(part);
-              } else {
-                showToast(`Barcode ${code} not found in database.`, "error");
-              }
-            });
-          }
-        } catch (err) {
-          console.error("Failed to poll scanner", err);
-        }
-      }, 1000);
-    } else {
-      fetch("http://localhost:8000/api/scanner/stop");
-    }
-
-    return () => {
-      clearInterval(interval);
-      if (showScanner) fetch("http://localhost:8000/api/scanner/stop");
-    };
-  }, [showScanner, parts, selectedCamera]);
 
   const fetchParts = async () => {
     setLoading(true);
@@ -170,6 +121,10 @@ export default function Sales() {
 
       return [...prev, { part, quantity: 1 }];
     });
+  };
+
+  const handleBarcodeConfirmed = (part: Part) => {
+    addToCart(part);
   };
 
   const updateQuantity = (partId: number, delta: number) => {
@@ -770,61 +725,14 @@ export default function Sales() {
         </div>
       )}
 
-      {showScanner && (
-        <div className="modal-overlay" style={{ zIndex: 9999 }}>
-          <div
-            className="modal modal--scanner"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h2>Scan Barcode</h2>
-              <button
-                type="button"
-                className="modal-close"
-                onClick={() => setShowScanner(false)}
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="scanner-controls">
-              <label>Select Camera:</label>
-              <select
-                value={selectedCamera}
-                onChange={(e) => setSelectedCamera(e.target.value)}
-                className="scanner-select"
-              >
-                {availableCameras.map((cam) => (
-                  <option key={cam.id} value={cam.id}>
-                    {cam.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="scanner-container">
-              <img
-                src={`http://localhost:8000/api/scanner/video_feed?t=${Date.now()}`}
-                alt="Barcode Scanner Feed"
-                className="scanner-video"
-              />
-              <p className="scanner-hint">
-                Align the barcode within the camera view
-              </p>
-            </div>
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => setShowScanner(false)}
-              >
-                Close Camera
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <BarcodeScannerModal
+        open={showScanner}
+        onClose={() => setShowScanner(false)}
+        parts={parts}
+        onConfirm={handleBarcodeConfirmed}
+        title="Scan Barcode"
+        confirmLabel="Add to cart"
+      />
 
       {toast && (
         <Toast

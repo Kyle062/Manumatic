@@ -768,69 +768,6 @@
 }
 
 /* ============================================================
-   CAMERA SCANNER MODAL
-   ============================================================ */
-
-.modal--scanner {
-  max-width: 700px;
-  width: 100%;
-}
-
-.scanner-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 20px 0 20px;
-  background: #000;
-}
-
-.scanner-controls label {
-  color: #e5e7eb;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.scanner-select {
-  flex: 1;
-  padding: 8px 12px;
-  background: #1f2937;
-  color: #ffffff;
-  border: 1px solid #374151;
-  border-radius: 6px;
-  font-size: 13px;
-  outline: none;
-  cursor: pointer;
-}
-
-.scanner-select:focus {
-  border-color: #0f6b5c;
-}
-
-.scanner-container {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: #000;
-  border-radius: 0 0 12px 12px;
-}
-
-.scanner-video {
-  width: 100%;
-  max-height: 60vh;
-  object-fit: contain;
-  border-radius: 8px;
-  background: #000;
-}
-
-.scanner-hint {
-  color: #e5e7eb;
-  font-size: 13px;
-  margin-top: 12px;
-  font-weight: 500;
-}
-
-/* ============================================================
    RESPONSIVE
    ============================================================ */
 
@@ -847,18 +784,26 @@
 @media (max-width: 900px) {
   .pos-layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr 400px;
+    grid-template-rows: 1fr auto;
     height: auto;
     min-height: calc(100vh - 64px);
+    overflow-y: auto; /* Allow full scrolling on mobile */
   }
 
   .pos-products {
-    max-height: 60vh;
+    max-height: none; /* Remove max-height constraint so it doesn't clip */
+    overflow-y: visible;
+  }
+
+  .pos-list {
+    max-height: none;
+    overflow-y: visible;
   }
 
   .pos-cart {
     border-left: none;
     border-top: 1px solid #e5e7eb;
+    max-height: none;
   }
 }
 

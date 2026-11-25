@@ -64,12 +64,14 @@
   justify-content: space-between;
   gap: 16px;
   padding: 20px 24px;
+  flex-wrap: wrap; /* Allow items to wrap on smaller screens */
 }
 
 .inv-search {
   position: relative;
   flex: 1;
   max-width: 380px;
+  min-width: 200px; /* Ensure search input has a minimum width */
 }
 
 .inv-search__icon {
@@ -138,7 +140,8 @@
 .inv-table-wrap {
   padding: 0 24px 24px 24px;
   flex: 1;
-  overflow-x: auto;
+  overflow-x: auto; /* Ensure horizontal scrolling for the table */
+  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
 }
 
 .inv-table {
@@ -1117,113 +1120,8 @@ textarea.adj-input {
   background: #f3f4f6;
 }
 
-@media (max-width: 900px) {
-  .avail-toolbar {
-    grid-template-columns: 1fr 1fr;
-  }
-  .avail-toolbar__search {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 768px) {
-  .inv-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .inv-search {
-    max-width: 100%;
-  }
-  .inv-add-btn {
-    justify-content: center;
-  }
-  .inv-table {
-    font-size: 12px;
-  }
-  .inv-table thead th,
-  .inv-table tbody td {
-    padding: 10px 8px;
-  }
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 600px) {
-  .avail-toolbar {
-    grid-template-columns: 1fr;
-  }
-  .avail-alert {
-    flex-wrap: wrap;
-  }
-  .avail-alert__action {
-    width: 100%;
-    margin-top: 4px;
-  }
-}
-
 /* ============================================================
    CATALOG SORTING CONTROLS
-   ============================================================ */
-
-.inv-sort-group {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.inv-sort-pill {
-  display: flex;
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 0 8px;
-  height: 40px;
-  transition: border-color 0.15s;
-}
-
-.inv-sort-pill:focus-within {
-  border-color: #0f6b5c;
-}
-
-.inv-sort-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
-  text-transform: uppercase;
-  margin-right: 8px;
-  letter-spacing: 0.05em;
-}
-
-.inv-sort-select {
-  border: none;
-  background: transparent;
-  font-size: 13px;
-  font-weight: 500;
-  color: #111827;
-  outline: none;
-  cursor: pointer;
-  font-family: inherit;
-  padding-right: 4px;
-}
-
-/* Responsive adjustments for sorting */
-@media (max-width: 1024px) {
-  .inv-toolbar {
-    flex-wrap: wrap;
-  }
-  .inv-sort-group {
-    width: 100%;
-    margin-top: 10px;
-  }
-  .inv-sort-pill {
-    flex: 1;
-  }
-}
-
-/* ============================================================
-   UNIFIED CATALOG SORTING PILLS (3 Separate)
    ============================================================ */
 
 .inv-sort-group {
@@ -1231,6 +1129,8 @@ textarea.adj-input {
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+  flex: 1; /* Allow sort group to take available space */
+  justify-content: flex-end; /* Align to end by default */
 }
 
 .inv-sort-pill {
@@ -1273,14 +1173,440 @@ textarea.adj-input {
   padding: 0 4px 0 0;
 }
 
-/* Responsive adjustment for the toolbar to wrap nicely */
-@media (max-width: 1200px) {
+/* ============================================================
+   PRINT / EXPORT TOOLBAR ACTIONS
+   ============================================================ */
+
+.inv-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.inv-add-btn--ghost {
+  background: #ffffff;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+}
+
+.inv-add-btn--ghost:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+/* ============================================================
+   ANIMATIONS & TRANSITIONS
+   ============================================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes staggerFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+/* Stagger fade for KPI Cards / table rows */
+.stagger-fade tbody tr,
+.stagger-fade .avail-card {
+  opacity: 0;
+  animation: staggerFade 0.4s ease-out forwards;
+}
+
+.stagger-fade tbody tr:nth-child(1),
+.stagger-fade .avail-card:nth-child(1) {
+  animation-delay: 0.02s;
+}
+.stagger-fade tbody tr:nth-child(2),
+.stagger-fade .avail-card:nth-child(2) {
+  animation-delay: 0.04s;
+}
+.stagger-fade tbody tr:nth-child(3),
+.stagger-fade .avail-card:nth-child(3) {
+  animation-delay: 0.06s;
+}
+.stagger-fade tbody tr:nth-child(4),
+.stagger-fade .avail-card:nth-child(4) {
+  animation-delay: 0.08s;
+}
+.stagger-fade tbody tr:nth-child(5),
+.stagger-fade .avail-card:nth-child(5) {
+  animation-delay: 0.1s;
+}
+.stagger-fade tbody tr:nth-child(6),
+.stagger-fade .avail-card:nth-child(6) {
+  animation-delay: 0.12s;
+}
+.stagger-fade tbody tr:nth-child(7),
+.stagger-fade .avail-card:nth-child(7) {
+  animation-delay: 0.14s;
+}
+.stagger-fade tbody tr:nth-child(8),
+.stagger-fade .avail-card:nth-child(8) {
+  animation-delay: 0.16s;
+}
+
+.hover-lift {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+
+@media (max-width: 768px) {
+  .inv-tabs {
+    padding: 0 12px;
+  }
+  .inv-tab {
+    padding: 12px 10px;
+    font-size: 12px;
+  }
+  .inv-tab.is-active::after {
+    left: 10px;
+    right: 10px;
+  }
+  .inv-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px 16px 12px 16px;
+  }
+  .inv-search {
+    max-width: 100%;
+  }
   .inv-sort-group {
     width: 100%;
-    margin-top: 10px;
+    margin-top: 12px;
+    justify-content: space-between;
   }
   .inv-sort-pill {
     flex: 1;
-    min-width: 150px;
+    min-width: 120px;
+  }
+  .inv-toolbar-actions {
+    flex-direction: column;
+    width: 100%;
+    margin-top: 12px;
+  }
+  .inv-toolbar-actions .inv-add-btn {
+    width: 100%;
+  }
+  .inv-table-wrap {
+    padding: 0 16px 16px 16px;
+  }
+  .inv-table {
+    font-size: 12px;
+  }
+  .inv-table thead th,
+  .inv-table tbody td {
+    padding: 10px 6px;
+  }
+  .inv-actions {
+    gap: 4px;
+  }
+
+  .adj-layout {
+    padding: 16px;
+  }
+  .adj-layout--centered {
+    padding: 20px 16px;
+  }
+  .adj-form-card {
+    padding: 20px;
+  }
+  .adj-title {
+    font-size: 16px;
+    margin-bottom: 18px;
+  }
+  .adj-toggle {
+    grid-template-columns: 1fr;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  .adj-input,
+  .adj-select {
+    font-size: 14px; /* Prevent iOS zoom */
+  }
+
+  .avail-layout {
+    padding: 16px;
+  }
+  .avail-alert {
+    flex-wrap: wrap;
+    padding: 10px;
+  }
+  .avail-alert__action {
+    width: 100%;
+    margin-top: 8px;
+  }
+  .avail-toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .avail-toolbar__label {
+    font-size: 10px;
+  }
+  .avail-toolbar__search-input,
+  .avail-toolbar__select {
+    font-size: 14px; /* Prevent iOS zoom */
+  }
+  .avail-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .avail-card__right {
+    width: 100%;
+    text-align: right;
+  }
+
+  .settings-layout {
+    padding: 16px;
+  }
+  .settings-header {
+    padding: 14px 16px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .settings-header h3 {
+    font-size: 13px;
+    flex: auto;
+  }
+  .settings-add-user {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 10px;
+  }
+  .settings-body {
+    padding: 16px;
+  }
+  .user-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 12px 16px;
+  }
+  .user-item__right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .user-role {
+    margin-right: auto;
+  }
+
+  /* Modal adjustments for smaller screens */
+  .modal {
+    max-width: 95vw;
+  }
+  .modal-header {
+    padding: 16px;
+  }
+  .modal-header h2 {
+    font-size: 16px;
+  }
+  .modal-form {
+    padding: 16px;
+  }
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 14px; /* Prevent iOS zoom */
+  }
+  .modal-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+  .modal-actions .btn-primary,
+  .modal-actions .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .inv-toolbar {
+    padding: 12px 12px 8px 12px;
+  }
+  .inv-table-wrap {
+    padding: 0 12px 12px 12px;
+  }
+  .inv-table thead th,
+  .inv-table tbody td {
+    padding: 8px 4px;
+  }
+  .inv-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .inv-icon-btn {
+    padding: 4px;
+  }
+  .adj-layout--centered {
+    padding: 16px;
+  }
+  .adj-form-card {
+    padding: 16px;
+  }
+  .adj-title {
+    font-size: 15px;
+  }
+  .avail-layout {
+    padding: 12px;
+  }
+  .avail-toolbar {
+    gap: 8px;
+  }
+  .avail-card {
+    padding: 10px 12px;
+  }
+  .avail-card__name {
+    font-size: 13px;
+  }
+  .avail-card__meta {
+    font-size: 11px;
+  }
+  .avail-badge {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+  .settings-layout {
+    padding: 12px;
+  }
+  .settings-header {
+    padding: 12px 12px;
+  }
+  .settings-body {
+    padding: 12px;
+  }
+  .user-item {
+    padding: 10px 12px;
+  }
+  .user-item__name {
+    font-size: 12px;
+  }
+  .user-item__meta {
+    font-size: 10px;
+  }
+  .user-role {
+    font-size: 10px;
+  }
+  .user-icon-btn {
+    padding: 4px;
+  }
+  .modal-header {
+    padding: 12px;
+  }
+  .modal-header h2 {
+    font-size: 15px;
+  }
+  .modal-form {
+    padding: 12px;
+  }
+  .reset-context {
+    font-size: 12px;
+  }
+  .btn-primary,
+  .btn-secondary {
+    height: 38px;
+    font-size: 12px;
+  }
+  .form-group label {
+    font-size: 11px;
+  }
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    font-size: 13px;
+  }
+}
+
+/* ============================================================
+   STOCK ADJUSTMENT — BARCODE SCAN
+   ============================================================ */
+
+.adj-scan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: -4px 0 20px 0;
+}
+
+.adj-scan-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.adj-scan-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #0f6b5c;
+  background: #e7f6ef;
+  border-radius: 9999px;
+  padding: 5px 10px;
+}
+
+.adj-scan-status strong {
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .adj-scan-row {
+    margin-bottom: 16px;
+  }
+
+  .adj-scan-btn {
+    width: 100%;
   }
 }
