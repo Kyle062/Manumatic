@@ -14,8 +14,7 @@ app.add_middleware(
 )
 
 app.include_router(reports_module.router, prefix="/api/reports", tags=["Reports"])
-app.include_router(scanner_module.router, prefix="/api/scanner", tags=["Scanner"]) # ✅ Add this
-
+app.include_router(scanner_module.router, prefix="/api/scanner", tags=["Scanner"]) 
 @app.get("/")
 def read_root():
     return {"message": "Manumatik Python Backend is running!"}
