@@ -4,7 +4,7 @@
   "description": "MANUMATIK — Automotive Inventory and Point-of-Sale Intelligence System API",
   "main": "dist/server.js",
   "scripts": {
-    "dev": "nodemon --exec ts-node src/server.ts",
+    "dev": "nodemon --watch src --ext ts,json --exec \"ts-node --transpile-only src/server.ts\"",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit"
