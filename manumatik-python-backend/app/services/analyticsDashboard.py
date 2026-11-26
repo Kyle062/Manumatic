@@ -167,7 +167,7 @@ def get_reorder_priority_analytics(limit: int):
     query = """
         SELECT part_id, part_number, name, category, quantity, reorder_level, price
         FROM parts
-        WHERE quantity <= reorder_level
+        WHERE quantity < reorder_level
     """
 
     # 2.2 Needs reordering(Dashboard) - Load those parts into a DataFrame.
@@ -203,13 +203,14 @@ def get_reorder_priority_analytics(limit: int):
     return result
 
 
-# 3.Top selling parts(Dashboard) - Showing the parts that sold the most.
+# 3.Reports(Top Movers) - Showing the parts that sold the most.
 def get_top_selling_analytics(limit: int, range_type: str = "week"):
-    # 3.1 Top selling parts(Dashboard) - Use Manila time to match stored sale dates.
+    # 3.0 Reports(Top Movers) - Used by /api/reports/top-movers; Dashboard uses section 7.
+    # 3.1 Reports(Top Movers) - Use Manila time to match stored sale dates.
     manila_tz = pytz.timezone("Asia/Manila")
     today = datetime.now(manila_tz)
 
-    # 3.2 Top selling parts(Dashboard) - Build the date window: today / 7 days / 30 days.
+    # 3.2 Reports(Top Movers) - Build the date window: today / 7 days / 30 days.
     if range_type == "today":
         date_filter = f"DATE(s.sale_date) = '{today.strftime('%Y-%m-%d')}'"
     elif range_type == "week":
@@ -219,7 +220,7 @@ def get_top_selling_analytics(limit: int, range_type: str = "week"):
         start_of_month = (today - pd.Timedelta(days=29)).strftime("%Y-%m-%d")
         date_filter = f"DATE(s.sale_date) >= '{start_of_month}'"
 
-    # 3.3 Top selling parts(Dashboard) - Fetch sale lines joined to part details.
+    # 3.3 Reports(Top Movers) - Fetch sale lines joined to part details.
     query = f"""
         SELECT s.quantity, s.total_price,
                p.part_id, p.part_number, p.name, p.category
@@ -228,34 +229,34 @@ def get_top_selling_analytics(limit: int, range_type: str = "week"):
         WHERE {date_filter}
     """
 
-    # 3.4 Top selling parts(Dashboard) - Load the raw rows into a DataFrame.
+    # 3.4 Reports(Top Movers) - Load the raw rows into a DataFrame.
     with engine.connect() as conn:
         df = pd.read_sql(query, conn)
 
-    # 3.5 Top selling parts(Dashboard) - Return an empty list if there are no sales.
+    # 3.5 Reports(Top Movers) - Return an empty list if there are no sales.
     if df.empty:
         return []
 
-    # 3.6 Top selling parts(Dashboard) - Sum units and revenue per part.
+    # 3.6 Reports(Top Movers) - Sum units and revenue per part.
     top_df = (
         df.groupby(["part_id", "part_number", "name", "category"])
         .agg(units_sold=("quantity", "sum"), revenue=("total_price", "sum"))
         .reset_index()
     )
 
-    # 3.7 Top selling parts(Dashboard) - Rank by units sold, then revenue, keep top N.
+    # 3.7 Reports(Top Movers) - Rank by units sold, then revenue, keep top N.
     top_df = top_df.sort_values(
         by=["units_sold", "revenue"], ascending=[False, False]
     ).head(limit)
 
-    # 3.8 Top selling parts(Dashboard) - Convert rows to a JSON-ready list.
+    # 3.8 Reports(Top Movers) - Convert rows to a JSON-ready list.
     result = top_df.to_dict(orient="records")
     for item in result:
         item["part_id"] = int(item["part_id"])
         item["units_sold"] = int(item["units_sold"])
         item["revenue"] = float(item["revenue"])
 
-    # 3.9 Top selling parts(Dashboard) - Final ranked list for the dashboard card.
+    # 3.9 Reports(Top Movers) - Final ranked list for the dashboard card.
     return result
 
 
@@ -362,6 +363,7 @@ def get_dashboard_logs(limit: int = 6):
 
 # 7.Dashboard(Top Selling) - Showing the best sellers with the original Node windows.
 def get_dashboard_top_selling(limit: int = 5, range_type: str = "week"):
+    # 7.0 Dashboard(Top Selling) - Used by /api/dashboard/top-selling; section 3 serves Reports.
     # 7.1 Dashboard(Top Selling) - Cap the limit before placing it in SQL.
     safe_limit = max(1, min(int(limit), 20))
 
@@ -408,6 +410,7 @@ def get_dashboard_top_selling(limit: int = 5, range_type: str = "week"):
 
 # 8.Dashboard(Sales Trend) - Showing the last 7 Manila days with short day labels.
 def get_dashboard_sales_trend():
+    # 8.0 Dashboard(Sales Trend) - Used by /api/dashboard/sales-trend for the 7-day chart.
     # 8.1 Dashboard(Sales Trend) - Match Node's +08:00 session for CURDATE().
     with _mysql_connection() as conn:
         # 8.2 Dashboard(Sales Trend) - Total revenue per calendar day, like Node.
@@ -451,6 +454,7 @@ def get_dashboard_sales_trend():
 
 # 9.Dashboard(Low Stock) - Showing the parts nearest their reorder level.
 def get_dashboard_low_stock(limit: int = 10):
+    # 9.0 Dashboard(Low Stock) - Used by /api/dashboard/low-stock for reorder card and bell.
     # 9.1 Dashboard(Low Stock) - Cap the limit before placing it in SQL.
     safe_limit = max(1, min(int(limit), 50))
 
