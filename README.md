@@ -40,6 +40,17 @@ npm install
 npm start        # Python :8000, Node API :5000, React :5173
 ```
 
+Editing code restarts only the affected service. The Python service is watched by
+`scripts/start-python.js` (not `uvicorn --reload`), because Uvicorn's Windows reload
+sends a console-wide Ctrl+C that shuts down the Node and React processes too.
+
+Dashboard and Reports read their data from the Python service on port 8000, so
+saving a `.py` file refreshes those pages automatically. If Python fails to start,
+the error is shown as a banner in the browser. Login, inventory, and sales still
+use the Node API on port 5000.
+
+Set `PYTHON_PORT` to override the Python port (default `8000`).
+
 Or start them individually:
 
 ### Python scanner/analytics service

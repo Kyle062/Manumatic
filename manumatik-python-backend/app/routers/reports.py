@@ -67,3 +67,15 @@ def get_stock_forecast():
 @router.get("/cashier-stats", response_model=List[schemas.CashierStatItem])
 def get_cashier_stats():
     return analyticsReports.get_cashier_stats_analytics()
+
+
+# 11.Reports(Low Stock Forecast) - Serving the forecast under the frontend's route name.
+@router.get("/low-stock-forecast", response_model=List[schemas.StockForecastItem])
+def get_low_stock_forecast():
+    return analyticsReports.get_stock_forecast_analytics()
+
+
+# 12.Reports(Cashier Performance) - Serving cashier stats under the frontend's route name.
+@router.get("/cashier-performance", response_model=List[schemas.CashierStatItem])
+def get_cashier_performance():
+    return analyticsReports.get_cashier_stats_analytics()

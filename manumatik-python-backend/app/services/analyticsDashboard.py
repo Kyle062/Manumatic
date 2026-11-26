@@ -1,13 +1,51 @@
 """
-Dashboard analytics: reordering priority, top selling parts, and daily sales.
+Dashboard analytics: sales overview, reordering, top sellers, and Dashboard cards.
 Each numbered block shows the database query and the Pandas work done on it.
 """
 
-# 0.Dependencies - Pandas, Manila timezone, and the shared MySQL engine.
-import pandas as pd
+# 0.Dependencies - Pandas, Manila timezone, context manager, numbers, typing, and the shared MySQL engine.
+from contextlib import contextmanager
 from datetime import datetime
+from numbers import Number
+from typing import Any, SupportsFloat, SupportsInt, cast
+
+import pandas as pd
 import pytz
+
 from app.database import engine
+
+
+# 0.0 Dependencies(Dashboard) - Convert pandas values with types Pyright accepts.
+def _as_float(value: Any) -> float:
+    return float(cast(SupportsFloat, value))
+
+
+# 0.0.1 Dependencies(Dashboard) - Convert pandas values to a JSON-safe integer.
+def _as_int(value: Any) -> int:
+    return int(cast(SupportsInt, value))
+
+
+# 0.1 Dependencies(Dashboard) - Read one scalar value for the headline cards.
+def _scalar(query: str, conn) -> float:
+    # 0.1.1 Dependencies(Dashboard) - pd.isna() can return an array, so check scalar first.
+    value = pd.read_sql(query, conn).iloc[0, 0]
+    if value is None or not pd.api.types.is_scalar(value) or pd.isna(value):
+        return 0.0
+
+    # 0.1.2 Dependencies(Dashboard) - `Number` includes NumPy ints/floats.
+    if isinstance(value, Number):
+        return _as_float(value)
+
+    # 0.1.3 Dependencies(Dashboard) - Non-numeric SQL values count as zero.
+    return 0.0
+
+
+# 0.2 Dependencies(Dashboard) - Match Node's +08:00 MySQL session for CURDATE().
+@contextmanager
+def _mysql_connection():
+    with engine.connect() as conn:
+        conn.exec_driver_sql("SET time_zone = '+08:00'")
+        yield conn
 
 
 # 1.Analytics(Dashboard) - Showing the sales each day.
@@ -52,13 +90,15 @@ def get_sales_overview_analytics(range_type: str):
         }
 
     # 1.6 Analytics(Dashboard) - Count distinct receipts as transactions.
-    total_revenue = float(df["total_price"].sum())
-    transaction_count = int(df["receipt_no"].nunique())
-    unique_parts_sold = int(df["part_id"].nunique())
+    total_revenue = _as_float(df["total_price"].sum())
+    transaction_count = _as_int(df["receipt_no"].nunique())
+    unique_parts_sold = _as_int(df["part_id"].nunique())
 
     # 1.7 Analytics(Dashboard) - Average sale uses receipt totals, not raw lines.
-    transaction_totals = df.groupby("receipt_no")["total_price"].sum()
-    avg_transaction = float(transaction_totals.mean())
+    transaction_totals = cast(
+        pd.Series, df.groupby("receipt_no")["total_price"].sum()
+    )
+    avg_transaction = _as_float(transaction_totals.mean())
 
     # 1.8 Analytics(Dashboard) - Normalize timestamps into YYYY-MM-DD day keys.
     df["sale_date"] = pd.to_datetime(df["sale_date"])
@@ -84,22 +124,28 @@ def get_sales_overview_analytics(range_type: str):
         day_str = row["day"]
 
         # 1.12 Analytics(Dashboard) - Slice each day's parts once before nesting.
-        day_parts_df = parts_by_day[parts_by_day["day"] == day_str]
-        parts_list = day_parts_df[
-            ["part_id", "part_number", "name", "quantity_sold", "revenue"]
-        ].to_dict(orient="records")
+        day_parts_df = cast(pd.DataFrame, parts_by_day[parts_by_day["day"] == day_str])
+        parts_list = cast(
+            list[dict[str, Any]],
+            cast(
+                pd.DataFrame,
+                day_parts_df[
+                    ["part_id", "part_number", "name", "quantity_sold", "revenue"]
+                ],
+            ).to_dict(orient="records"),
+        )
 
         # 1.13 Analytics(Dashboard) - Convert NumPy numbers so FastAPI can send JSON.
         for p in parts_list:
-            p["part_id"] = int(p["part_id"])
-            p["quantity_sold"] = int(p["quantity_sold"])
-            p["revenue"] = float(p["revenue"])
+            p["part_id"] = _as_int(p["part_id"])
+            p["quantity_sold"] = _as_int(p["quantity_sold"])
+            p["revenue"] = _as_float(p["revenue"])
 
         daily_data.append(
             {
                 "day": day_str,
-                "revenue": float(row["revenue"]),
-                "transactions": int(row["transactions"]),
+                "revenue": _as_float(row["revenue"]),
+                "transactions": _as_int(row["transactions"]),
                 "parts_sold": parts_list,
             }
         )
@@ -113,6 +159,7 @@ def get_sales_overview_analytics(range_type: str):
         "avg_transaction": avg_transaction,
         "daily": daily_data,
     }
+
 
 # 2.Needs reordering(Dashboard) - Showing what needs to be ordered by priority.
 def get_reorder_priority_analytics(limit: int):
@@ -135,10 +182,10 @@ def get_reorder_priority_analytics(limit: int):
     df["deficit"] = df["reorder_level"] - df["quantity"]
 
     # 2.5 Needs reordering(Dashboard) - Estimate the peso cost to restock each part.
-    df["estimated_cost"] = df["deficit"] * df["price"]
+    df["restock_cost"] = df["deficit"] * df["price"]
 
     # 2.6 Needs reordering(Dashboard) - Biggest shortages first, capped at limit.
-    df = df.sort_values(by=["deficit", "estimated_cost"], ascending=[False, False]).head(limit)
+    df = df.sort_values(by=["deficit", "restock_cost"], ascending=[False, False]).head(limit)
 
     # 2.7 Needs reordering(Dashboard) - Turn rows into records for the response.
     result = df.to_dict(orient="records")
@@ -150,7 +197,7 @@ def get_reorder_priority_analytics(limit: int):
         item["reorder_level"] = int(item["reorder_level"])
         item["deficit"] = int(item["deficit"])
         item["price"] = float(item["price"])
-        item["estimated_cost"] = float(item["estimated_cost"])
+        item["restock_cost"] = float(item["restock_cost"])
 
     # 2.9 Needs reordering(Dashboard) - Final prioritized reorder list.
     return result
@@ -212,3 +259,227 @@ def get_top_selling_analytics(limit: int, range_type: str = "week"):
     return result
 
 
+# 4.Dashboard(Stats) - Showing the headline cards at the top of the page.
+def get_dashboard_stats():
+    # 4.1 Dashboard(Stats) - Use MySQL's CURDATE() in +08:00, exactly like Node.
+    with _mysql_connection() as conn:
+        # 4.2 Dashboard(Stats) - Read today's revenue and distinct receipts.
+        today_row = pd.read_sql(
+            """
+            SELECT
+                COALESCE(SUM(total_price), 0) AS total_sales,
+                COUNT(DISTINCT receipt_no)    AS transaction_count
+            FROM sales
+            WHERE DATE(sale_date) = CURDATE()
+            """,
+            conn,
+        ).iloc[0]
+
+        # 4.3 Dashboard(Stats) - Read all-time receipts and stock counts.
+        total_transactions = _scalar(
+            "SELECT COUNT(DISTINCT receipt_no) FROM sales", conn
+        )
+        low_stock_items = _scalar(
+            "SELECT COUNT(*) FROM parts WHERE quantity <= reorder_level", conn
+        )
+        parts_in_catalog = _scalar("SELECT COUNT(*) FROM parts", conn)
+        units_on_hand = _scalar("SELECT COALESCE(SUM(quantity), 0) FROM parts", conn)
+
+    # 4.4 Dashboard(Stats) - Convert NumPy values to plain numbers for FastAPI.
+    return {
+        "todaySales": {
+            "total_sales": float(today_row["total_sales"] or 0),
+            "transaction_count": int(today_row["transaction_count"] or 0),
+        },
+        "totalTransactions": int(total_transactions),
+        "lowStockItems": int(low_stock_items),
+        "partsInCatalog": int(parts_in_catalog),
+        "unitsOnHand": int(units_on_hand),
+    }
+
+
+# 5.Dashboard(Transactions) - Showing the latest sales table rows.
+def get_dashboard_transactions(limit: int = 6):
+    # 5.1 Dashboard(Transactions) - Cap the limit before placing it in SQL.
+    safe_limit = max(1, min(int(limit), 50))
+
+    # 5.2 Dashboard(Transactions) - Join sales, parts, and cashiers for readable rows.
+    with engine.connect() as conn:
+        df = pd.read_sql(
+            f"""
+            SELECT s.sale_id, s.receipt_no, p.name AS part_name, s.sale_date,
+                   s.total_price, u.name AS user_name
+            FROM sales s
+            JOIN parts p ON s.part_id = p.part_id
+            JOIN users u ON s.user_id = u.user_id
+            ORDER BY s.sale_date DESC
+            LIMIT {safe_limit}
+            """,
+            conn,
+        )
+
+    # 5.3 Dashboard(Transactions) - Convert timestamps and numbers to JSON-safe values.
+    result = []
+    for row in df.to_dict(orient="records"):
+        sold_at = pd.to_datetime(row["sale_date"])
+        result.append(
+            {
+                "sale_id": int(row["sale_id"]),
+                "receipt_no": str(row["receipt_no"]),
+                "part_name": str(row["part_name"]),
+                "sale_date": "" if pd.isna(sold_at) else sold_at.isoformat(),
+                "total_price": float(row["total_price"]),
+                "user_name": str(row["user_name"]),
+            }
+        )
+
+    # 5.4 Dashboard(Transactions) - Final recent-sale list for the dashboard table.
+    return result
+
+
+# 6.Dashboard(Activity Logs) - Turning recent sales into timeline text.
+def get_dashboard_logs(limit: int = 6):
+    # 6.1 Dashboard(Activity Logs) - Reuse transactions so text matches the table.
+    logs = []
+    for txn in get_dashboard_transactions(limit):
+        timestamp = pd.to_datetime(txn["sale_date"])
+        time = "" if pd.isna(timestamp) else timestamp.strftime("%H:%M")
+
+        # 6.2 Dashboard(Activity Logs) - Build the short cashier activity sentence.
+        logs.append(
+            {
+                "time": time,
+                "text": (
+                    f'{txn["user_name"]} processed sale '
+                    f'{txn["receipt_no"]} - {txn["part_name"]}'
+                ),
+            }
+        )
+
+    # 6.3 Dashboard(Activity Logs) - Final ordered activity feed.
+    return logs
+
+
+# 7.Dashboard(Top Selling) - Showing the best sellers with the original Node windows.
+def get_dashboard_top_selling(limit: int = 5, range_type: str = "week"):
+    # 7.1 Dashboard(Top Selling) - Cap the limit before placing it in SQL.
+    safe_limit = max(1, min(int(limit), 20))
+
+    # 7.2 Dashboard(Top Selling) - Match Node: today / 7-day / 30-day windows.
+    if range_type == "today":
+        date_filter = "WHERE DATE(s.sale_date) = CURDATE()"
+    elif range_type == "month":
+        date_filter = "WHERE s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)"
+    else:
+        date_filter = "WHERE s.sale_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
+
+    # 7.3 Dashboard(Top Selling) - Group by part and rank by units sold, like Node.
+    with _mysql_connection() as conn:
+        df = pd.read_sql(
+            f"""
+            SELECT p.part_id, p.name,
+                   SUM(s.quantity)    AS sold,
+                   SUM(s.total_price) AS revenue
+            FROM sales s
+            JOIN parts p ON s.part_id = p.part_id
+            {date_filter}
+            GROUP BY p.part_id, p.name
+            ORDER BY sold DESC
+            LIMIT {safe_limit}
+            """,
+            conn,
+        )
+
+    # 7.4 Dashboard(Top Selling) - Convert rows to JSON-safe values for the card.
+    result = []
+    for row in df.to_dict(orient="records"):
+        result.append(
+            {
+                "part_id": int(row["part_id"]),
+                "name": str(row["name"]),
+                "sold": int(row["sold"]),
+                "revenue": float(row["revenue"]),
+            }
+        )
+
+    # 7.5 Dashboard(Top Selling) - Final ranked list for the dashboard card.
+    return result
+
+
+# 8.Dashboard(Sales Trend) - Showing the last 7 Manila days with short day labels.
+def get_dashboard_sales_trend():
+    # 8.1 Dashboard(Sales Trend) - Match Node's +08:00 session for CURDATE().
+    with _mysql_connection() as conn:
+        # 8.2 Dashboard(Sales Trend) - Total revenue per calendar day, like Node.
+        sales_df = pd.read_sql(
+            """
+            SELECT DATE_FORMAT(sale_date, '%%Y-%%m-%%d') AS day_iso,
+                   SUM(total_price) AS sales
+            FROM sales
+            WHERE sale_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+            GROUP BY DATE(sale_date)
+            """,
+            conn,
+        )
+
+        # 8.3 Dashboard(Sales Trend) - Build all seven days, oldest to newest.
+        days_df = pd.read_sql(
+            """
+            SELECT DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL n DAY), '%%Y-%%m-%%d') AS day_iso,
+                   DAYNAME(DATE_SUB(CURDATE(), INTERVAL n DAY)) AS day_name
+            FROM (
+                SELECT 0 AS n UNION SELECT 1 UNION SELECT 2 UNION SELECT 3
+                UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+            ) AS numbers
+            ORDER BY n DESC
+            """,
+            conn,
+        )
+
+    # 8.4 Dashboard(Sales Trend) - Map revenue by ISO day; missing days stay zero.
+    sales_by_day = dict(zip(sales_df["day_iso"], sales_df["sales"]))
+
+    # 8.5 Dashboard(Sales Trend) - Return `Mon`/`Tue` labels the chart expects.
+    return [
+        {
+            "day": str(row["day_name"])[:3],
+            "sales": float(sales_by_day.get(row["day_iso"], 0) or 0),
+        }
+        for _, row in days_df.iterrows()
+    ]
+
+
+# 9.Dashboard(Low Stock) - Showing the parts nearest their reorder level.
+def get_dashboard_low_stock(limit: int = 10):
+    # 9.1 Dashboard(Low Stock) - Cap the limit before placing it in SQL.
+    safe_limit = max(1, min(int(limit), 50))
+
+    # 9.2 Dashboard(Low Stock) - Match Node: lowest stock first.
+    with engine.connect() as conn:
+        df = pd.read_sql(
+            f"""
+            SELECT *
+            FROM parts
+            WHERE quantity <= reorder_level
+            ORDER BY quantity ASC
+            LIMIT {safe_limit}
+            """,
+            conn,
+        )
+
+    # 9.3 Dashboard(Low Stock) - Convert rows to JSON-safe values for the card.
+    result = []
+    for row in df.to_dict(orient="records"):
+        result.append(
+            {
+                "part_id": int(row["part_id"]),
+                "part_number": str(row["part_number"]),
+                "name": str(row["name"]),
+                "category": str(row["category"]),
+                "quantity": int(row["quantity"]),
+                "reorder_level": int(row["reorder_level"]),
+            }
+        )
+
+    # 9.4 Dashboard(Low Stock) - Final low-stock list for the dashboard.
+    return result

@@ -32,6 +32,7 @@ import {
   getSalesTrend,
   getLowStockParts,
 } from "../../services/api";
+import { onPythonStatus } from "../../pythonStatus";
 import "./Dashboard.css";
 
 import DashboardImg1 from "../../assets/images/DashboardImg1.png";
@@ -142,6 +143,23 @@ export default function Dashboard() {
       console.error("Top selling fetch error:", err);
     }
   };
+
+  // Python file saves are pushed here by the Vite bridge, so the dashboard
+  // refreshes as soon as the Python service is back up.
+  useEffect(() => {
+    const refresh = () => {
+      fetchDashboardData();
+      fetchTopSellingData();
+    };
+    const unsubscribe = onPythonStatus((status) => {
+      if (status.ok) refresh();
+    });
+    window.addEventListener("focus", refresh);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", refresh);
+    };
+  }, [topRange]);
 
   const money = (n: number) =>
     "₱" +
@@ -261,7 +279,7 @@ export default function Dashboard() {
           <div className="welcome-strip">
             <div className="welcome-strip__left">
               <h2 className="welcome-strip__title">
-                Welcome back, {displayRole} 👋
+                Welcome back, {displayRole} 
               </h2>
               <p className="welcome-strip__sub">
                 Here's what's happening in your store today · {todayLabel}

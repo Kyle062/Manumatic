@@ -39,6 +39,7 @@ import {
   getLowStockForecast,
   getCashierPerformance,
 } from "../../services/api";
+import { onPythonStatus } from "../../pythonStatus";
 
 // Import the logo directly so Vite bundles it
 import logoImage from "../../assets/images/Signage.png";
@@ -145,6 +146,21 @@ export default function Reports() {
       setLoading(false);
     }
   };
+
+  // Refresh the active report when Python restarts after a code edit.
+  useEffect(() => {
+    const unsubscribe = onPythonStatus((status) => {
+      if (status.ok) loadTab();
+    });
+    const onFocus = () => loadTab();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      unsubscribe();
+      window.removeEventListener("focus", onFocus);
+    };
+    // loadTab reads activeTab/range from component state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, range]);
 
   const showToast = (message: string, type: ToastType = "info") => {
     setToast({ message, type });

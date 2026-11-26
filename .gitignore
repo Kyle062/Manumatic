@@ -2,3 +2,5 @@ node_modules/
 dist/
 .env
 *.log
+frontend/python-status.json
+frontend/node_modules.onedrive-backup/

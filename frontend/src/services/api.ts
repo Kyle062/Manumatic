@@ -14,6 +14,14 @@ const api = axios.create({
   },
 });
 
+// Read-only analytics come from the Python service so .py edits show up live.
+const pythonApi = axios.create({
+  baseURL: PYTHON_API_URL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
 // Attach JWT token to API requests
 const attachToken = (config: any) => {
   const token = localStorage.getItem("token");
@@ -128,7 +136,7 @@ export const getDashboardStats = async (): Promise<{
     };
   }
 
-  return api.get("/dashboard/stats");
+  return pythonApi.get("/dashboard/stats");
 };
 
 export const getDashboardTransactions = async (limit = 10) => {
@@ -137,7 +145,7 @@ export const getDashboardTransactions = async (limit = 10) => {
     return { data: [] };
   }
 
-  return api.get(`/dashboard/transactions?limit=${limit}`);
+  return pythonApi.get(`/dashboard/transactions?limit=${limit}`);
 };
 
 export const getActivityLogs = async (limit = 8) => {
@@ -146,7 +154,7 @@ export const getActivityLogs = async (limit = 8) => {
     return { data: [] };
   }
 
-  return api.get(`/dashboard/logs?limit=${limit}`);
+  return pythonApi.get(`/dashboard/logs?limit=${limit}`);
 };
 
 export const getTopSelling = async (limit = 5, range = "week") => {
@@ -154,7 +162,7 @@ export const getTopSelling = async (limit = 5, range = "week") => {
     await delay(300);
     return { data: [] };
   }
-  return api.get(`/dashboard/top-selling?limit=${limit}&range=${range}`);
+  return pythonApi.get(`/dashboard/top-selling?limit=${limit}&range=${range}`);
 };
 
 export const getSalesTrend = async () => {
@@ -163,7 +171,7 @@ export const getSalesTrend = async () => {
     return { data: [] };
   }
 
-  return api.get("/dashboard/sales-trend");
+  return pythonApi.get("/dashboard/sales-trend");
 };
 
 export const getAllParts = async (): Promise<{ data: Part[] }> => {
@@ -231,7 +239,7 @@ export const getLowStockParts = async () => {
     return { data: [] };
   }
 
-  return api.get("/inventory/low-stock");
+  return pythonApi.get("/dashboard/low-stock");
 };
 
 export const adjustStock = async (data: {
@@ -333,9 +341,7 @@ export const checkout = async (data: {
 
 // ============================================================
 // REPORTS
-// These use the Node API. The Python API is reserved for the
-// barcode scanner — its report endpoints can hang indefinitely,
-// which left Sales Overview and Top Movers stuck on "Loading...".
+// These read from the Python API so .py edits show up on the page.
 // ============================================================
 
 export const getSalesOverview = async (range: string = "today") => {
@@ -343,7 +349,7 @@ export const getSalesOverview = async (range: string = "today") => {
     await delay(300);
     return { data: {} };
   }
-  return api.get(`/reports/sales-overview?range=${range}`);
+  return pythonApi.get(`/reports/sales-overview?range=${range}`);
 };
 
 export const getInventoryValuation = async () => {
@@ -351,7 +357,7 @@ export const getInventoryValuation = async () => {
     await delay(300);
     return { data: {} };
   }
-  return api.get("/reports/inventory-valuation");
+  return pythonApi.get("/reports/inventory-valuation");
 };
 
 export const getTopMovers = async (limit: number = 5) => {
@@ -359,7 +365,7 @@ export const getTopMovers = async (limit: number = 5) => {
     await delay(300);
     return { data: { top: [], slow: [] } };
   }
-  return api.get(`/reports/top-movers?limit=${limit}`);
+  return pythonApi.get(`/reports/top-movers?limit=${limit}`);
 };
 
 export const getReorderPriority = async () => {
@@ -367,7 +373,7 @@ export const getReorderPriority = async () => {
     await delay(300);
     return { data: [] };
   }
-  return api.get("/reports/reorder-priority");
+  return pythonApi.get("/reports/reorder-priority");
 };
 
 export const getLowStockForecast = async () => {
@@ -375,7 +381,7 @@ export const getLowStockForecast = async () => {
     await delay(300);
     return { data: [] };
   }
-  return api.get("/reports/low-stock-forecast");
+  return pythonApi.get("/reports/low-stock-forecast");
 };
 
 export const getCashierPerformance = async () => {
@@ -383,5 +389,5 @@ export const getCashierPerformance = async () => {
     await delay(300);
     return { data: [] };
   }
-  return api.get("/reports/cashier-performance");
+  return pythonApi.get("/reports/cashier-performance");
 };

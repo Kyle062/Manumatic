@@ -66,7 +66,7 @@ class ReorderPriorityItem(BaseModel):
     reorder_level: int
     deficit: int
     price: float
-    estimated_cost: float
+    restock_cost: float
 
 
 # 8.Schemas(Top Selling Parts) - A ranked part from the dashboard best-sellers card.
