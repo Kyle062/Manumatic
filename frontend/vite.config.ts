@@ -37,6 +37,26 @@ function pythonStatusBridge(): Plugin {
 export default defineConfig({
   plugins: [react(), pythonStatusBridge()],
   server: {
+    // Bind to the LAN interface so a phone on the same Wi-Fi can open the app.
+    // Node and Python stay on loopback; Vite proxies their APIs from here.
+    host: "0.0.0.0",
     port: 5173,
+    proxy: {
+      // Node handles auth, inventory, sales, and messages.
+      "/api": {
+        target: "http://127.0.0.1:5000",
+        changeOrigin: true,
+        // The browser talks to Vite; forward a localhost origin so the
+        // backend's dev CORS still accepts requests made from a phone.
+        headers: { origin: "http://localhost:5173" },
+      },
+      // Python handles Dashboard, Reports, barcode, and scanner.
+      "/python-api": {
+        target: "http://127.0.0.1:8000",
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/python-api/, "/api"),
+        headers: { origin: "http://localhost:5173" },
+      },
+    },
   },
 });

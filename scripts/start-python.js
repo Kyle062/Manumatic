@@ -95,7 +95,7 @@ function startServer() {
 
   const proc = spawn(
     interpreter,
-    ["-m", "uvicorn", "main:app", "--port", port],
+    ["-m", "uvicorn", "main:app", "--host", "127.0.0.1", "--port", port],
     { cwd: serviceDir, stdio: ["inherit", "inherit", "pipe"] },
   );
   child = proc;

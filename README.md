@@ -51,6 +51,22 @@ use the Node API on port 5000.
 
 Set `PYTHON_PORT` to override the Python port (default `8000`).
 
+### Phone access (same Wi-Fi only)
+
+Open the app on the phone with this machine's LAN address:
+
+```
+http://10.103.98.114:5173
+```
+
+Only Vite listens on the LAN. It proxies `/api` to Node and `/python-api` to
+Python; both APIs stay bound to `127.0.0.1`, so no public host or port
+forwarding is needed. If the LAN address changes, run `ipconfig` and use the
+new address — the frontend URLs are relative, so no `.env` edit is required.
+
+If the phone cannot connect, allow inbound TCP port `5173` on Private networks
+in Windows Firewall.
+
 Or start them individually:
 
 ### Python scanner/analytics service

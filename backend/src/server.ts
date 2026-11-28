@@ -80,7 +80,8 @@ const startServer = async (): Promise<void> => {
       console.warn("⚠️  Could not initialize messages table:", error);
     }
 
-    app.listen(env.PORT, () => {
+    // Keep Node off the LAN: the Vite dev server proxies /api here.
+    app.listen(env.PORT, "127.0.0.1", () => {
       console.log("");
       console.log("╔═══════════════════════════════════════════════════╗");
       console.log("║                                                   ║");
