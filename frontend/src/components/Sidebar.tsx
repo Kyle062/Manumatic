@@ -6,6 +6,7 @@ import {
   Tag,
   ShoppingCart,
   BarChart3,
+  MessageSquare,
   UserCircle2,
   LogOut,
   Menu,
@@ -20,6 +21,7 @@ const menuItems = [
   { path: "/inventory", label: "Inventory", Icon: Tag },
   { path: "/sales", label: "Sales", Icon: ShoppingCart },
   { path: "/reports", label: "Reports", Icon: BarChart3 },
+  { path: "/messages", label: "Messages", Icon: MessageSquare },
 ];
 
 export default function Sidebar() {

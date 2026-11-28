@@ -104,6 +104,7 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [catalogCategory, setCatalogCategory] = useState<string>("all");
 
   const [nameSort, setNameSort] = useState<NameSort>("name-asc");
   const [priceSort, setPriceSort] = useState<PriceSort>("none");
@@ -885,6 +886,10 @@ export default function Inventory() {
       );
     });
 
+    if (catalogCategory !== "all") {
+      list = list.filter((p) => p.category === catalogCategory);
+    }
+
     if (stockSort !== "none") {
       list.sort((a, b) => {
         if (stockSort === "qty-asc") return a.quantity - b.quantity;
@@ -912,7 +917,7 @@ export default function Inventory() {
     }
 
     return list;
-  }, [parts, search, nameSort, priceSort, stockSort]);
+  }, [parts, search, catalogCategory, nameSort, priceSort, stockSort]);
 
   // Native browser Intl formatting for UI
   const money = (n: number) =>
@@ -1191,6 +1196,21 @@ export default function Inventory() {
                 </div>
 
                 <div className="inv-sort-group">
+                  <div className="inv-sort-pill">
+                    <span className="inv-sort-label">Category</span>
+                    <select
+                      value={catalogCategory}
+                      onChange={(e) => setCatalogCategory(e.target.value)}
+                      className="inv-sort-select"
+                    >
+                      {categories.map((c) => (
+                        <option key={c} value={c}>
+                          {c === "all" ? "All" : c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="inv-sort-pill">
                     <span className="inv-sort-label">Name</span>
                     <select

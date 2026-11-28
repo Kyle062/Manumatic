@@ -81,3 +81,24 @@ export interface LoginResponse {
   token: string;
   user: User;
 }
+
+// ============================================================
+// MESSAGES
+// ============================================================
+
+export interface ChatContact {
+  user_id: number;
+  username: string;
+  role: "admin" | "manager";
+  name: string;
+}
+
+export interface ChatMessage {
+  message_id: number;
+  from_user_id: number;
+  to_user_id: number;
+  body: string;
+  due_at: string | null;
+  created_at: string;
+  read_at: string | null;
+}

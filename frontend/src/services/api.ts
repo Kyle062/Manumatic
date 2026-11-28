@@ -352,42 +352,93 @@ export const getSalesOverview = async (range: string = "today") => {
   return pythonApi.get(`/reports/sales-overview?range=${range}`);
 };
 
-export const getInventoryValuation = async () => {
+export const getInventoryValuation = async (range: string = "today") => {
   if (USE_MOCK) {
     await delay(300);
     return { data: {} };
   }
-  return pythonApi.get("/reports/inventory-valuation");
+  return pythonApi.get(`/reports/inventory-valuation?range=${range}`);
 };
 
-export const getTopMovers = async (limit: number = 5) => {
+export const getTopMovers = async (
+  limit: number = 5,
+  range: string = "all",
+) => {
   if (USE_MOCK) {
     await delay(300);
     return { data: { top: [], slow: [] } };
   }
-  return pythonApi.get(`/reports/top-movers?limit=${limit}`);
+  return pythonApi.get(
+    `/reports/top-movers?limit=${limit}&range=${range}`,
+  );
 };
 
-export const getReorderPriority = async () => {
+export const getReorderPriority = async (
+  limit: number = 5,
+  range: string = "month",
+) => {
   if (USE_MOCK) {
     await delay(300);
     return { data: [] };
   }
-  return pythonApi.get("/reports/reorder-priority");
+  return pythonApi.get(
+    `/reports/reorder-priority?limit=${limit}&range=${range}`,
+  );
 };
 
-export const getLowStockForecast = async () => {
+export const getLowStockForecast = async (range: string = "month") => {
   if (USE_MOCK) {
     await delay(300);
     return { data: [] };
   }
-  return pythonApi.get("/reports/low-stock-forecast");
+  return pythonApi.get(`/reports/low-stock-forecast?range=${range}`);
 };
 
-export const getCashierPerformance = async () => {
+export const getCashierPerformance = async (range: string = "all") => {
   if (USE_MOCK) {
     await delay(300);
     return { data: [] };
   }
-  return pythonApi.get("/reports/cashier-performance");
+  return pythonApi.get(`/reports/cashier-performance?range=${range}`);
+};
+
+// ============================================================
+// MESSAGES
+// Auth-backed chat between the admin and manager accounts.
+// ============================================================
+
+export const getMessageContacts = async () => {
+  if (USE_MOCK) {
+    await delay(200);
+    return { data: [] };
+  }
+  return api.get("/messages/contacts");
+};
+
+export const getMessages = async (withUserId: number) => {
+  if (USE_MOCK) {
+    await delay(200);
+    return { data: [] };
+  }
+  return api.get(`/messages?with=${withUserId}`);
+};
+
+export const sendMessage = async (data: {
+  to_user_id: number;
+  body: string;
+  due_at?: string | null;
+}) => {
+  if (USE_MOCK) {
+    await delay(300);
+    return { data: { message: "Mock mode: message not sent." } };
+  }
+  return api.post("/messages", data);
+};
+
+export const markMessageRead = async (messageId: number) => {
+  if (USE_MOCK) {
+    await delay(200);
+    return { data: {} };
+  }
+  return api.patch(`/messages/${messageId}/read`);
 };

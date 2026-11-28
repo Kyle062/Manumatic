@@ -25,6 +25,11 @@ def _as_int(value: Any) -> int:
     return int(cast(SupportsInt, value))
 
 
+# 0.0.2 Dependencies(Dashboard) - Public aliases shared with Reports analytics.
+as_float = _as_float
+as_int = _as_int
+
+
 # 0.1 Dependencies(Dashboard) - Read one scalar value for the headline cards.
 def _scalar(query: str, conn) -> float:
     # 0.1.1 Dependencies(Dashboard) - pd.isna() can return an array, so check scalar first.
@@ -48,23 +53,33 @@ def _mysql_connection():
         yield conn
 
 
+# 0.2.1 Dependencies(Dashboard) - Public name shared with the Reports analytics.
+def mysql_connection():
+    return _mysql_connection()
+
+
+# 0.3 Dependencies(Dashboard) - One shared date window for every report range.
+def get_range_filter(range_type: str, column: str = "s.sale_date") -> str:
+    # 0.3.1 Dependencies(Dashboard) - Last 7/30/365 days include the current day.
+    if range_type == "today":
+        return f"DATE({column}) = CURDATE()"
+    if range_type == "week":
+        return f"DATE({column}) >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)"
+    if range_type == "month":
+        return f"DATE({column}) >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)"
+    if range_type == "year":
+        return f"DATE({column}) >= DATE_SUB(CURDATE(), INTERVAL 364 DAY)"
+
+    # 0.3.2 Dependencies(Dashboard) - Unknown values fall back to all time.
+    return "1 = 1"
+
+
 # 1.Analytics(Dashboard) - Showing the sales each day.
 def get_sales_overview_analytics(range_type: str):
-    # 1.1 Analytics(Dashboard) - Match MySQL's +08:00 so sales land on the right day.
-    manila_tz = pytz.timezone("Asia/Manila")
-    today = datetime.now(manila_tz)
+    # 1.1 Analytics(Dashboard) - Use the shared Manila-time window for the range.
+    date_filter = get_range_filter(range_type)
 
-    # 1.2 Analytics(Dashboard) - Choose today, the last 7 days, or the last 30 days.
-    if range_type == "today":
-        date_filter = f"DATE(s.sale_date) = '{today.strftime('%Y-%m-%d')}'"
-    elif range_type == "week":
-        start_of_week = (today - pd.Timedelta(days=6)).strftime("%Y-%m-%d")
-        date_filter = f"DATE(s.sale_date) >= '{start_of_week}'"
-    else:
-        start_of_month = (today - pd.Timedelta(days=29)).strftime("%Y-%m-%d")
-        date_filter = f"DATE(s.sale_date) >= '{start_of_month}'"
-
-    # 1.3 Analytics(Dashboard) - Join sales to parts for readable part labels.
+    # 1.2 Analytics(Dashboard) - Join sales to parts for readable part labels.
     query = f"""
         SELECT 
             s.receipt_no, s.sale_date, s.quantity, s.total_price, 
@@ -74,8 +89,8 @@ def get_sales_overview_analytics(range_type: str):
         WHERE {date_filter}
     """
 
-    # 1.4 Analytics(Dashboard) - Load rows into a DataFrame for fast grouping.
-    with engine.connect() as conn:
+    # 1.3 Analytics(Dashboard) - Load rows into a DataFrame for fast grouping.
+    with mysql_connection() as conn:
         df = pd.read_sql(query, conn)
 
     # 1.5 Analytics(Dashboard) - Return zeros so a new shop still renders charts.

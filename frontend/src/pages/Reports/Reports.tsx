@@ -57,7 +57,21 @@ type Tab =
   | "forecast"
   | "cashier";
 
-type Range = "today" | "week" | "month";
+type Range = "today" | "week" | "month" | "year" | "all";
+
+const RANGE_OPTIONS: { value: Range; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "Last 7 Days" },
+  { value: "month", label: "Last 30 Days" },
+  { value: "year", label: "1 Year" },
+  { value: "all", label: "All Time" },
+];
+
+interface ExportColumn {
+  key: string;
+  label: string;
+  get: (row: any) => any;
+}
 
 interface ToastState {
   message: string;
@@ -100,8 +114,59 @@ export default function Reports() {
 
   // ---- Export Modal State ----
   const [showExportModal, setShowExportModal] = useState(false);
-  const [exportAction, setExportAction] = useState<"print" | "pdf">("print");
-  const [exportRanges, setExportRanges] = useState<string[]>(["today"]);
+  const [exportAction, setExportAction] = useState<"print" | "pdf" | "csv">(
+    "print",
+  );
+  const [exportRanges, setExportRanges] = useState<Range[]>(["today"]);
+  const [selectedColumns, setSelectedColumns] = useState<Record<Tab, string[]>>({
+    sales: ["name", "part_number", "quantity_sold", "revenue"],
+    valuation: [
+      "category",
+      "part_count",
+      "units",
+      "value",
+      "units_sold",
+      "sold_revenue",
+    ],
+    movers: [
+      "group",
+      "name",
+      "part_number",
+      "category",
+      "units_sold",
+      "revenue",
+      "current_stock",
+    ],
+    reorder: [
+      "urgency",
+      "name",
+      "part_number",
+      "category",
+      "quantity",
+      "reorder_level",
+      "deficit",
+      "recent_sales",
+      "restock_cost",
+    ],
+    forecast: [
+      "stockout_status",
+      "name",
+      "part_number",
+      "category",
+      "current_stock",
+      "units_last_30d",
+      "avg_daily_sales",
+      "days_until_stockout",
+    ],
+    cashier: [
+      "name",
+      "role",
+      "total_sales",
+      "total_revenue",
+      "avg_transaction",
+      "last_sale",
+    ],
+  });
 
   // ---- Load data on tab change ----
   useEffect(() => {
@@ -119,23 +184,23 @@ export default function Reports() {
           setSalesData(r1.data);
           break;
         case "valuation":
-          const r2 = await getInventoryValuation();
+          const r2 = await getInventoryValuation(range);
           setValuationData(r2.data);
           break;
         case "movers":
-          const r3 = await getTopMovers(5);
+          const r3 = await getTopMovers(5, range);
           setMoversData(r3.data);
           break;
         case "reorder":
-          const r4 = await getReorderPriority();
+          const r4 = await getReorderPriority(5, range);
           setReorderData(r4.data);
           break;
         case "forecast":
-          const r5 = await getLowStockForecast();
+          const r5 = await getLowStockForecast(range);
           setForecastData(r5.data);
           break;
         case "cashier":
-          const r6 = await getCashierPerformance();
+          const r6 = await getCashierPerformance(range);
           setCashierData(r6.data);
           break;
       }
@@ -187,38 +252,236 @@ export default function Reports() {
     });
   };
 
-  const getRangeLabel = (r: string) => {
-    if (r === "today") return "Today";
-    if (r === "week") return "Last 7 Days";
-    if (r === "month") return "Last 30 Days";
-    return "All Time";
+  const getRangeLabel = (r: Range) => {
+    return RANGE_OPTIONS.find((option) => option.value === r)?.label ?? r;
+  };
+
+  // ---- Export column definitions ----
+  const getExportColumns = (tab: Tab): ExportColumn[] => {
+    switch (tab) {
+      case "sales":
+        return [
+          { key: "name", label: "Part", get: (r) => r.name },
+          { key: "part_number", label: "Part #", get: (r) => r.part_number },
+          { key: "quantity_sold", label: "Qty Sold", get: (r) => r.quantity_sold },
+          { key: "revenue", label: "Revenue", get: (r) => money(r.revenue) },
+        ];
+      case "valuation":
+        return [
+          { key: "category", label: "Category", get: (r) => r.category },
+          { key: "part_count", label: "Parts", get: (r) => r.part_count },
+          { key: "units", label: "Units", get: (r) => r.units },
+          { key: "value", label: "Value", get: (r) => money(r.value) },
+          { key: "units_sold", label: "Units Sold", get: (r) => r.units_sold },
+          {
+            key: "sold_revenue",
+            label: "Sold Revenue",
+            get: (r) => money(r.sold_revenue),
+          },
+        ];
+      case "movers":
+        return [
+          { key: "group", label: "Group", get: (r) => r.group },
+          { key: "name", label: "Part", get: (r) => r.name },
+          { key: "part_number", label: "Part #", get: (r) => r.part_number },
+          { key: "category", label: "Category", get: (r) => r.category },
+          { key: "units_sold", label: "Sold", get: (r) => r.units_sold },
+          {
+            key: "revenue",
+            label: "Revenue",
+            get: (r) => (r.revenue === undefined ? "—" : money(r.revenue)),
+          },
+          {
+            key: "current_stock",
+            label: "In Stock",
+            get: (r) => r.current_stock,
+          },
+        ];
+      case "reorder":
+        return [
+          { key: "urgency", label: "Urgency", get: (r) => r.urgency },
+          { key: "name", label: "Part", get: (r) => r.name },
+          { key: "part_number", label: "Part #", get: (r) => r.part_number },
+          { key: "category", label: "Category", get: (r) => r.category },
+          { key: "quantity", label: "In Stock", get: (r) => r.quantity },
+          {
+            key: "reorder_level",
+            label: "Min",
+            get: (r) => r.reorder_level,
+          },
+          { key: "deficit", label: "Deficit", get: (r) => r.deficit },
+          {
+            key: "recent_sales",
+            label: "Range Sales",
+            get: (r) => r.recent_sales,
+          },
+          {
+            key: "restock_cost",
+            label: "Restock Cost",
+            get: (r) => money(r.restock_cost),
+          },
+        ];
+      case "forecast":
+        return [
+          {
+            key: "stockout_status",
+            label: "Status",
+            get: (r) => r.stockout_status,
+          },
+          { key: "name", label: "Part", get: (r) => r.name },
+          { key: "part_number", label: "Part #", get: (r) => r.part_number },
+          { key: "category", label: "Category", get: (r) => r.category },
+          { key: "current_stock", label: "In Stock", get: (r) => r.current_stock },
+          {
+            key: "units_last_30d",
+            label: "Range Units",
+            get: (r) => r.units_last_30d,
+          },
+          {
+            key: "avg_daily_sales",
+            label: "Daily Sales",
+            get: (r) => r.avg_daily_sales,
+          },
+          {
+            key: "days_until_stockout",
+            label: "Days",
+            get: (r) => r.days_until_stockout,
+          },
+        ];
+      case "cashier":
+        return [
+          { key: "name", label: "Cashier", get: (r) => r.name },
+          { key: "role", label: "Role", get: (r) => r.role },
+          { key: "total_sales", label: "Sales", get: (r) => r.total_sales },
+          {
+            key: "total_revenue",
+            label: "Revenue",
+            get: (r) => money(r.total_revenue),
+          },
+          {
+            key: "avg_transaction",
+            label: "Avg Transaction",
+            get: (r) => money(r.avg_transaction),
+          },
+          {
+            key: "last_sale",
+            label: "Last Sale",
+            get: (r) => (r.last_sale ? shortDate(r.last_sale) : "—"),
+          },
+        ];
+    }
+  };
+
+  const getRawRowsForRange = (data: any): any[] => {
+    switch (activeTab) {
+      case "sales": {
+        const displayData =
+          data?.daily?.flatMap((d: any) => d.parts_sold || []) || [];
+        return Object.values(
+          displayData.reduce((acc: any, item: any) => {
+            if (!acc[item.part_id]) {
+              acc[item.part_id] = { ...item };
+            } else {
+              acc[item.part_id].quantity_sold += item.quantity_sold;
+              acc[item.part_id].revenue += item.revenue;
+            }
+            return acc;
+          }, {}),
+        );
+      }
+      case "valuation":
+        return data?.by_category || [];
+      case "movers":
+        return [
+          ...(data?.top || []).map((p: any) => ({
+            ...p,
+            group: "Best Seller",
+          })),
+          ...(data?.slow || []).map((p: any) => ({
+            ...p,
+            group: "Slow Mover",
+            revenue: undefined,
+          })),
+        ];
+      case "reorder":
+      case "forecast":
+      case "cashier":
+        return Array.isArray(data) ? data : [];
+    }
+  };
+
+  const buildExportTable = (targetRange: Range, data: any) => {
+    const columns = getExportColumns(activeTab).filter((column) =>
+      selectedColumns[activeTab].includes(column.key),
+    );
+    const rawRows = getRawRowsForRange(data);
+
+    return {
+      head: [["Range", ...columns.map((column) => column.label)]],
+      body: rawRows.map((row: any) => [
+        getRangeLabel(targetRange),
+        ...columns.map((column) => {
+          const value = column.get(row);
+          return value === null || value === undefined || value === ""
+            ? "—"
+            : String(value);
+        }),
+      ]),
+      rowCount: rawRows.length,
+    };
+  };
+
+  const fetchDataForRange = async (r: Range) => {
+    switch (activeTab) {
+      case "sales":
+        return (await getSalesOverview(r)).data;
+      case "valuation":
+        return (await getInventoryValuation(r)).data;
+      case "movers":
+        return (await getTopMovers(5, r)).data;
+      case "reorder":
+        return (await getReorderPriority(5, r)).data;
+      case "forecast":
+        return (await getLowStockForecast(r)).data;
+      case "cashier":
+        return (await getCashierPerformance(r)).data;
+    }
   };
 
   // ---- CSV Export ----
-  const exportCSV = (filename: string, rows: any[]) => {
-    if (!rows || rows.length === 0) {
-      showToast("No data to export.", "error");
+  const executeCSV = async () => {
+    if (selectedColumns[activeTab].length === 0) {
+      showToast("Select at least one column to export.", "error");
+      return;
+    }
+    if (exportRanges.length === 0) {
+      showToast("Select at least one date range.", "error");
       return;
     }
 
+    setShowExportModal(false);
     try {
-      const headers = Object.keys(rows[0]);
+      const tables = [];
+      for (const r of exportRanges) {
+        tables.push(buildExportTable(r, await fetchDataForRange(r)));
+      }
+
+      const headers = tables[0].head[0];
+      const rows = tables.flatMap((table) => table.body);
+      if (rows.length === 0) {
+        showToast("No data to export.", "error");
+        return;
+      }
+
       const csv = [
         headers.join(","),
-        ...rows.map((r) =>
-          headers
-            .map((h) => {
-              const val = r[h];
-              if (val === null || val === undefined) return "";
-              let str = String(val).replace(/"/g, '""');
-              if (
-                str.includes(",") ||
-                str.includes('"') ||
-                str.includes("\n")
-              ) {
-                return `"${str}"`;
-              }
-              return str;
+        ...rows.map((row: string[]) =>
+          row
+            .map((cell) => {
+              const str = String(cell).replace(/"/g, '""');
+              return str.includes(",") || str.includes('"') || str.includes("\n")
+                ? `"${str}"`
+                : str;
             })
             .join(","),
         ),
@@ -228,119 +491,36 @@ export default function Reports() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${filename}-${new Date().toISOString().split("T")[0]}.csv`;
+      link.download = `report-${activeTab}-${new Date().toISOString().split("T")[0]}.csv`;
       link.click();
       URL.revokeObjectURL(url);
 
       showToast(`Exported ${rows.length} rows as CSV.`, "success");
     } catch (err) {
+      console.error(err);
       showToast("Failed to generate CSV.", "error");
     }
   };
 
-  // ---- Data Aggregation for specific range ----
-  const getExportDataForRange = (targetRange: string, data: any) => {
-    if (activeTab === "sales") {
-      const displayData =
-        data?.daily?.flatMap((d: any) => d.parts_sold || []) || [];
-      const aggregatedData = Object.values(
-        displayData.reduce((acc: any, item: any) => {
-          if (!acc[item.part_id]) {
-            acc[item.part_id] = { ...item };
-          } else {
-            acc[item.part_id].quantity_sold += item.quantity_sold;
-            acc[item.part_id].revenue += item.revenue;
-          }
-          return acc;
-        }, {}),
-      );
-
-      return {
-        head: [["Part", "Part #", "Qty Sold", "Revenue"]],
-        body: aggregatedData.map((p: any) => [
-          p.name,
-          p.part_number,
-          p.quantity_sold,
-          money(p.revenue),
-        ]),
-      };
-    } else if (activeTab === "valuation") {
-      return {
-        head: [["Category", "Parts", "Units", "Value"]],
-        body:
-          data?.by_category?.map((c: any) => [
-            c.category,
-            c.part_count,
-            c.units,
-            money(c.value),
-          ]) || [],
-      };
-    } else if (activeTab === "movers") {
-      return {
-        head: [["Part", "Part #", "Sold", "Revenue"]],
-        body:
-          data?.top?.map((p: any) => [
-            p.name,
-            p.part_number,
-            p.units_sold,
-            money(p.revenue),
-          ]) || [],
-      };
-    } else if (activeTab === "reorder") {
-      return {
-        head: [["Urgency", "Part", "In Stock", "Deficit", "Restock Cost"]],
-        body:
-          data?.map((r: any) => [
-            r.urgency,
-            r.name,
-            r.quantity,
-            r.deficit,
-            money(r.restock_cost),
-          ]) || [],
-      };
-    } else if (activeTab === "forecast") {
-      return {
-        head: [["Status", "Part", "In Stock", "Daily Sales", "Days"]],
-        body:
-          data?.map((f: any) => [
-            f.stockout_status,
-            f.name,
-            f.current_stock,
-            f.avg_daily_sales,
-            f.days_until_stockout,
-          ]) || [],
-      };
-    } else if (activeTab === "cashier") {
-      return {
-        head: [["Cashier", "Role", "Sales", "Revenue"]],
-        body:
-          data?.map((c: any) => [
-            c.name,
-            c.role,
-            c.total_sales,
-            money(c.total_revenue),
-          ]) || [],
-      };
-    }
-    return { head: [], body: [] };
-  };
-
-  // Helper to fetch data dynamically for the export
-  const fetchDataForRange = async (r: string) => {
-    if (activeTab === "sales") {
-      const actualRange = r === "all" ? "month" : r;
-      const res = await getSalesOverview(actualRange as Range);
-      return res.data;
-    } else if (activeTab === "valuation") return valuationData;
-    else if (activeTab === "movers") return moversData;
-    else if (activeTab === "reorder") return reorderData;
-    else if (activeTab === "forecast") return forecastData;
-    else if (activeTab === "cashier") return cashierData;
-    return null;
-  };
+  const escapeHTML = (value: any) =>
+    String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
 
   // ---- Print Logic ----
   const executePrint = async () => {
+    if (selectedColumns[activeTab].length === 0) {
+      showToast("Select at least one column to print.", "error");
+      return;
+    }
+    if (exportRanges.length === 0) {
+      showToast("Select at least one date range.", "error");
+      return;
+    }
+
     setShowExportModal(false);
     const win = window.open("", "_blank");
     if (!win) {
@@ -353,7 +533,7 @@ export default function Reports() {
       <html>
       <head>
         <meta charset="UTF-8" />
-        <title>Report - ${activeTab.toUpperCase()}</title>
+        <title>Report - ${escapeHTML(activeTab.toUpperCase())}</title>
         <style>
           body { font-family: sans-serif; padding: 40px; color: #111827; }
           .page-break { page-break-after: always; }
@@ -371,13 +551,16 @@ export default function Reports() {
     `;
 
     for (const r of exportRanges) {
-      const data = await fetchDataForRange(r);
-      const { head, body } = getExportDataForRange(r, data);
-      const headHTML = head[0].map((h: string) => `<th>${h}</th>`).join("");
+      const { head, body } = buildExportTable(r, await fetchDataForRange(r));
+      const headHTML = head[0]
+        .map((h: string) => `<th>${escapeHTML(h)}</th>`)
+        .join("");
       const bodyHTML = body
         .map(
           (row: any) =>
-            `<tr>${row.map((cell: any) => `<td>${cell}</td>`).join("")}</tr>`,
+            `<tr>${row
+              .map((cell: any) => `<td>${escapeHTML(cell)}</td>`)
+              .join("")}</tr>`,
         )
         .join("");
 
@@ -385,9 +568,9 @@ export default function Reports() {
         <div class="page-break">
           <div class="header">
             <img src="${logoImage}" class="logo" alt="Logo" />
-            <h2>Report: ${activeTab.toUpperCase()} (${getRangeLabel(r)})</h2>
+            <h2>Report: ${escapeHTML(activeTab.toUpperCase())} (${escapeHTML(getRangeLabel(r))})</h2>
           </div>
-          <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+          <div class="meta">Generated: ${escapeHTML(new Date().toLocaleString())}</div>
           <table>
             <thead><tr>${headHTML}</tr></thead>
             <tbody>${bodyHTML}</tbody>
@@ -408,6 +591,15 @@ export default function Reports() {
 
   // ---- PDF Export Logic ----
   const executeExportPDF = async () => {
+    if (selectedColumns[activeTab].length === 0) {
+      showToast("Select at least one column to export.", "error");
+      return;
+    }
+    if (exportRanges.length === 0) {
+      showToast("Select at least one date range.", "error");
+      return;
+    }
+
     setShowExportModal(false);
     setPdfGenerating(true);
     try {
@@ -439,8 +631,7 @@ export default function Reports() {
       let isFirstPage = true;
 
       for (const r of exportRanges) {
-        const data = await fetchDataForRange(r);
-        const { head, body } = getExportDataForRange(r, data);
+        const { head, body } = buildExportTable(r, await fetchDataForRange(r));
 
         if (!isFirstPage) {
           doc.addPage();
@@ -511,6 +702,32 @@ export default function Reports() {
     }
   };
 
+  const openExport = (action: "print" | "pdf" | "csv") => {
+    setExportAction(action);
+    setExportRanges([range]);
+    setShowExportModal(true);
+  };
+
+  const toggleExportRange = (r: Range) => {
+    setExportRanges((current) =>
+      current.includes(r)
+        ? current.filter((item) => item !== r)
+        : [...current, r],
+    );
+  };
+
+  const toggleExportColumn = (key: string) => {
+    setSelectedColumns((current) => {
+      const active = current[activeTab];
+      return {
+        ...current,
+        [activeTab]: active.includes(key)
+          ? active.filter((item) => item !== key)
+          : [...active, key],
+      };
+    });
+  };
+
   // ============================================================
   // RENDER
   // ============================================================
@@ -552,20 +769,14 @@ export default function Reports() {
           {/* GLOBAL TOOLBAR */}
           <div className="rpt-toolbar" style={{ padding: "24px 24px 0 24px" }}>
             <div className="rpt-range">
-              {(["today", "week", "month"] as Range[]).map((r) => (
+              {RANGE_OPTIONS.map((option) => (
                 <button
-                  key={r}
+                  key={option.value}
                   type="button"
-                  className={`rpt-range__btn ${range === r ? "is-active" : ""}`}
-                  onClick={() => setRange(r)}
-                  disabled={activeTab !== "sales"} // Only applicable to sales
-                  style={{ opacity: activeTab !== "sales" ? 0.5 : 1 }}
+                  className={`rpt-range__btn ${range === option.value ? "is-active" : ""}`}
+                  onClick={() => setRange(option.value)}
                 >
-                  {r === "today"
-                    ? "Today"
-                    : r === "week"
-                      ? "Last 7 Days"
-                      : "Last 30 Days"}
+                  {option.label}
                 </button>
               ))}
             </div>
@@ -574,46 +785,21 @@ export default function Reports() {
               <button
                 type="button"
                 className="rpt-export"
-                onClick={() => {
-                  const { body } = getExportDataForRange(
-                    range,
-                    activeTab === "sales" ? salesData : {},
-                  );
-                  exportCSV(
-                    `report-${activeTab}-${range}`,
-                    body.map((row: any[]) =>
-                      Object.fromEntries(
-                        row.map((val: any, i: number) => [
-                          getExportDataForRange(
-                            range,
-                            activeTab === "sales" ? salesData : {},
-                          ).head[0][i],
-                          val,
-                        ]),
-                      ),
-                    ),
-                  );
-                }}
+                onClick={() => openExport("csv")}
               >
                 <Download size={14} /> Export CSV
               </button>
               <button
                 type="button"
                 className="rpt-export"
-                onClick={() => {
-                  setExportAction("print");
-                  setShowExportModal(true);
-                }}
+                onClick={() => openExport("print")}
               >
                 <Printer size={14} /> Print
               </button>
               <button
                 type="button"
                 className="rpt-export"
-                onClick={() => {
-                  setExportAction("pdf");
-                  setShowExportModal(true);
-                }}
+                onClick={() => openExport("pdf")}
                 disabled={pdfGenerating}
               >
                 <FileDown size={14} />{" "}
@@ -676,11 +862,7 @@ export default function Reports() {
                     <div className="rpt-card__head">
                       <h3>Revenue Trend</h3>
                       <span className="rpt-card__hint">
-                        {range === "today"
-                          ? "Today"
-                          : range === "week"
-                            ? "Last 7 days"
-                            : "Last 30 days"}
+                        {getRangeLabel(range)}
                       </span>
                     </div>
                     {salesData.daily && salesData.daily.length > 0 ? (
@@ -767,11 +949,7 @@ export default function Reports() {
                         <span className="rpt-card__hint">
                           {selectedDay
                             ? `Revenue: ${money(selectedDay.revenue)}`
-                            : range === "today"
-                              ? "Sold today"
-                              : range === "week"
-                                ? "Sold in last 7 days"
-                                : "Sold in last 30 days"}
+                            : `Sold · ${getRangeLabel(range)}`}
                         </span>
                         {selectedDay && (
                           <button
@@ -899,6 +1077,30 @@ export default function Reports() {
                       </div>
                     </div>
 
+                    <div className="rpt-kpi hover-lift">
+                      <div className="rpt-kpi__icon rpt-kpi__icon--orange">
+                        <ShoppingCart size={18} />
+                      </div>
+                      <div className="rpt-kpi__label">
+                        Units Sold · {getRangeLabel(range)}
+                      </div>
+                      <div className="rpt-kpi__value">
+                        {valuationData.range_units_sold ?? 0}
+                      </div>
+                    </div>
+
+                    <div className="rpt-kpi hover-lift">
+                      <div className="rpt-kpi__icon rpt-kpi__icon--green">
+                        <DollarSign size={18} />
+                      </div>
+                      <div className="rpt-kpi__label">
+                        Revenue · {getRangeLabel(range)}
+                      </div>
+                      <div className="rpt-kpi__value">
+                        {money(valuationData.range_revenue ?? 0)}
+                      </div>
+                    </div>
+
                     <div className="rpt-kpi rpt-kpi--warn hover-lift">
                       <div className="rpt-kpi__icon rpt-kpi__icon--red">
                         <AlertTriangle size={18} />
@@ -1017,6 +1219,12 @@ export default function Reports() {
                             <th className="rpt-right rpt-col-num">Parts</th>
                             <th className="rpt-right rpt-col-num">Units</th>
                             <th className="rpt-right rpt-col-money">Value</th>
+                            <th className="rpt-right rpt-col-num">
+                              Sold · {getRangeLabel(range)}
+                            </th>
+                            <th className="rpt-right rpt-col-money">
+                              Sales · {getRangeLabel(range)}
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -1043,6 +1251,12 @@ export default function Reports() {
                                 </td>
                                 <td className="rpt-right rpt-col-money">
                                   {money(c.value)}
+                                </td>
+                                <td className="rpt-right rpt-col-num">
+                                  {c.units_sold ?? 0}
+                                </td>
+                                <td className="rpt-right rpt-col-money">
+                                  {money(c.sold_revenue ?? 0)}
                                 </td>
                               </tr>
                             ),
@@ -1073,7 +1287,9 @@ export default function Reports() {
                         <ArrowUpRight size={16} style={{ color: "#0f6b5c" }} />
                         Best Sellers
                       </h3>
-                      <span className="rpt-card__hint">By units sold</span>
+                      <span className="rpt-card__hint">
+                        By units sold · {getRangeLabel(range)}
+                      </span>
                     </div>
                     {moversData.top.length === 0 ? (
                       <div className="rpt-empty">No sales yet.</div>
@@ -1191,6 +1407,9 @@ export default function Reports() {
                         <th className="rpt-right rpt-col-num">In Stock</th>
                         <th className="rpt-right rpt-col-num">Min</th>
                         <th className="rpt-right rpt-col-num">Deficit</th>
+                        <th className="rpt-right rpt-col-num">
+                          Sales · {getRangeLabel(range)}
+                        </th>
                         <th className="rpt-right rpt-col-money">
                           Restock Cost
                         </th>
@@ -1223,6 +1442,9 @@ export default function Reports() {
                               {r.deficit}
                             </span>
                           </td>
+                          <td className="rpt-right rpt-col-num">
+                            {r.recent_sales ?? 0}
+                          </td>
                           <td className="rpt-right rpt-col-money">
                             {money(r.restock_cost)}
                           </td>
@@ -1254,6 +1476,9 @@ export default function Reports() {
                         <th className="rpt-col-urgency">Status</th>
                         <th>Part</th>
                         <th className="rpt-right rpt-col-num">In Stock</th>
+                        <th className="rpt-right rpt-col-num">
+                          Units · {getRangeLabel(range)}
+                        </th>
                         <th className="rpt-right rpt-col-num">Daily Sales</th>
                         <th className="rpt-right rpt-col-days">
                           Days Until Stockout
@@ -1278,6 +1503,9 @@ export default function Reports() {
                           </td>
                           <td className="rpt-right rpt-col-num">
                             {f.current_stock}
+                          </td>
+                          <td className="rpt-right rpt-col-num">
+                            {f.units_last_30d ?? 0}
                           </td>
                           <td className="rpt-right rpt-col-num">
                             {f.avg_daily_sales}/day
@@ -1314,7 +1542,9 @@ export default function Reports() {
                       <tr>
                         <th>Cashier</th>
                         <th className="rpt-col-role">Role</th>
-                        <th className="rpt-right rpt-col-num">Sales</th>
+                        <th className="rpt-right rpt-col-num">
+                          Sales · {getRangeLabel(range)}
+                        </th>
                         <th className="rpt-right rpt-col-money">
                           Total Revenue
                         </th>
@@ -1366,10 +1596,7 @@ export default function Reports() {
           className="modal-overlay"
           onClick={() => setShowExportModal(false)}
         >
-          <div
-            className="modal modal--small"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Export Options - {activeTab.toUpperCase()}</h2>
               <button
@@ -1381,107 +1608,47 @@ export default function Reports() {
             </div>
             <div className="modal-form">
               <div className="reset-context">
-                Select the date range(s) you want to include in the{" "}
-                {exportAction === "pdf" ? "PDF" : "Print"} document.
+                Select the date range(s) and data columns to include in the{" "}
+                {exportAction === "pdf"
+                  ? "PDF"
+                  : exportAction === "csv"
+                    ? "CSV"
+                    : "Print"}{" "}
+                output.
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                  margin: "15px 0",
-                }}
-              >
-                {activeTab === "sales" ? (
-                  <>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        cursor: "pointer",
-                      }}
-                    >
+              <div className="rpt-export-section">
+                <div className="rpt-export-section__title">Date ranges</div>
+                <div className="rpt-export-grid">
+                  {RANGE_OPTIONS.map((option) => (
+                    <label key={option.value} className="rpt-export-check">
                       <input
                         type="checkbox"
-                        checked={exportRanges.includes("today")}
-                        onChange={(e) => {
-                          if (e.target.checked)
-                            setExportRanges([...exportRanges, "today"]);
-                          else
-                            setExportRanges(
-                              exportRanges.filter((r) => r !== "today"),
-                            );
-                        }}
+                        checked={exportRanges.includes(option.value)}
+                        onChange={() => toggleExportRange(option.value)}
                       />
-                      Today
+                      {option.label}
                     </label>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        cursor: "pointer",
-                      }}
-                    >
+                  ))}
+                </div>
+              </div>
+
+              <div className="rpt-export-section">
+                <div className="rpt-export-section__title">
+                  Columns to include
+                </div>
+                <div className="rpt-export-grid">
+                  {getExportColumns(activeTab).map((column) => (
+                    <label key={column.key} className="rpt-export-check">
                       <input
                         type="checkbox"
-                        checked={exportRanges.includes("week")}
-                        onChange={(e) => {
-                          if (e.target.checked)
-                            setExportRanges([...exportRanges, "week"]);
-                          else
-                            setExportRanges(
-                              exportRanges.filter((r) => r !== "week"),
-                            );
-                        }}
+                        checked={selectedColumns[activeTab].includes(column.key)}
+                        onChange={() => toggleExportColumn(column.key)}
                       />
-                      Last 7 Days
+                      {column.label}
                     </label>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={exportRanges.includes("month")}
-                        onChange={(e) => {
-                          if (e.target.checked)
-                            setExportRanges([...exportRanges, "month"]);
-                          else
-                            setExportRanges(
-                              exportRanges.filter((r) => r !== "month"),
-                            );
-                        }}
-                      />
-                      Last 30 Days
-                    </label>
-                  </>
-                ) : (
-                  <label
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={exportRanges.includes("all")}
-                      onChange={(e) => {
-                        if (e.target.checked) setExportRanges(["all"]);
-                        else setExportRanges([]);
-                      }}
-                    />
-                    All Time (Full Data)
-                  </label>
-                )}
+                  ))}
+                </div>
               </div>
 
               <div className="modal-actions">
@@ -1495,9 +1662,14 @@ export default function Reports() {
                 <button
                   type="button"
                   className="btn-primary"
-                  disabled={exportRanges.length === 0 || pdfGenerating}
+                  disabled={
+                    exportRanges.length === 0 ||
+                    selectedColumns[activeTab].length === 0 ||
+                    pdfGenerating
+                  }
                   onClick={() => {
-                    if (exportAction === "print") executePrint();
+                    if (exportAction === "csv") executeCSV();
+                    else if (exportAction === "print") executePrint();
                     else executeExportPDF();
                   }}
                 >
@@ -1505,7 +1677,9 @@ export default function Reports() {
                     ? "Generating..."
                     : exportAction === "pdf"
                       ? "Generate PDF"
-                      : "Print Now"}
+                      : exportAction === "csv"
+                        ? "Export CSV"
+                        : "Print Now"}
                 </button>
               </div>
             </div>

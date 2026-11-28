@@ -11,6 +11,8 @@ import dashboardRoutes from "./routes/dashboardRoutes";
 import inventoryRoutes from "./routes/inventoryRoutes";
 import userRoutes from "./routes/userRoutes";
 import reportRoutes from "./routes/reportRoutes";
+import messageRoutes from "./routes/messageRoutes";
+import { initializeMessageTable } from "./models/messageModel";
 // Load env vars
 dotenv.config();
 
@@ -56,6 +58,7 @@ app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/messages", messageRoutes);
 // ============================================================
 // ERROR HANDLERS (must be last)
 // ============================================================
@@ -69,6 +72,13 @@ const startServer = async (): Promise<void> => {
   try {
     // Test DB connection first
     await testConnection();
+
+    // Chat table is created on boot so no manual migration is needed.
+    try {
+      await initializeMessageTable();
+    } catch (error) {
+      console.warn("⚠️  Could not initialize messages table:", error);
+    }
 
     app.listen(env.PORT, () => {
       console.log("");
@@ -100,6 +110,10 @@ const startServer = async (): Promise<void> => {
       console.log("  POST   /api/inventory");
       console.log("  PUT    /api/inventory/:id");
       console.log("  DELETE /api/inventory/:id");
+      console.log("  GET    /api/messages/contacts");
+      console.log("  GET    /api/messages?with=<user_id>");
+      console.log("  POST   /api/messages");
+      console.log("  PATCH  /api/messages/:id/read");
       console.log("");
     });
   } catch (error) {

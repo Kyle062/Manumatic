@@ -129,6 +129,8 @@ class CategoryValuation(BaseModel):
     part_count: int
     units: int
     value: float
+    units_sold: int
+    sold_revenue: float
 
 
 # 15.Schemas(Inventory Valuation) - Warehouse totals, risk value, category breakdown.
@@ -138,6 +140,8 @@ class InventoryValuationResponse(BaseModel):
     total_value: float
     low_stock_count: int
     at_risk_value: float
+    range_units_sold: int
+    range_revenue: float
     by_category: List[CategoryValuation]
 
 

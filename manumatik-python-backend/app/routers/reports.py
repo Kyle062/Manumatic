@@ -16,14 +16,14 @@ def get_sales_overview(range: str = Query("today")):
 
 # 2.Reports(Top Movers) - Serving the fastest and slowest selling parts.
 @router.get("/top-movers", response_model=schemas.TopMoversResponse)
-def get_top_movers(limit: int = Query(5)):
-    return analyticsReports.get_top_movers_analytics(limit)
+def get_top_movers(limit: int = Query(5), range: str = Query("all")):
+    return analyticsReports.get_top_movers_analytics(limit, range)
 
 
 # 3.Reports(Reorder Priority) - Serving the urgent restock list from Reports analytics.
 @router.get("/reorder-priority", response_model=List[schemas.ReorderPriorityReportItem])
-def get_reorder_priority(limit: int = Query(5)):
-    return analyticsReports.get_reorder_priority_report_analytics(limit)
+def get_reorder_priority(limit: int = Query(5), range: str = Query("month")):
+    return analyticsReports.get_reorder_priority_report_analytics(limit, range)
 
 
 # 4.Reports(Top Selling Parts) - Serving the dashboard best-sellers ranking.
@@ -53,29 +53,29 @@ def get_period_sales(range: str = Query("week")):
 
 # 8.Reports(Inventory Valuation) - Serving the stock value and category breakdown.
 @router.get("/inventory-valuation", response_model=schemas.InventoryValuationResponse)
-def get_inventory_valuation():
-    return analyticsReports.get_inventory_valuation_analytics()
+def get_inventory_valuation(range: str = Query("today")):
+    return analyticsReports.get_inventory_valuation_analytics(range)
 
 
 # 9.Reports(Stock Forecast) - Serving the parts closest to running out.
 @router.get("/stock-forecast", response_model=List[schemas.StockForecastItem])
-def get_stock_forecast():
-    return analyticsReports.get_stock_forecast_analytics()
+def get_stock_forecast(range: str = Query("month")):
+    return analyticsReports.get_stock_forecast_analytics(range)
 
 
 # 10.Reports(Cashier Stats) - Serving the ranked cashier performance list.
 @router.get("/cashier-stats", response_model=List[schemas.CashierStatItem])
-def get_cashier_stats():
-    return analyticsReports.get_cashier_stats_analytics()
+def get_cashier_stats(range: str = Query("all")):
+    return analyticsReports.get_cashier_stats_analytics(range)
 
 
 # 11.Reports(Low Stock Forecast) - Serving the forecast under the frontend's route name.
 @router.get("/low-stock-forecast", response_model=List[schemas.StockForecastItem])
-def get_low_stock_forecast():
-    return analyticsReports.get_stock_forecast_analytics()
+def get_low_stock_forecast(range: str = Query("month")):
+    return analyticsReports.get_stock_forecast_analytics(range)
 
 
 # 12.Reports(Cashier Performance) - Serving cashier stats under the frontend's route name.
 @router.get("/cashier-performance", response_model=List[schemas.CashierStatItem])
-def get_cashier_performance():
-    return analyticsReports.get_cashier_stats_analytics()
+def get_cashier_performance(range: str = Query("all")):
+    return analyticsReports.get_cashier_stats_analytics(range)

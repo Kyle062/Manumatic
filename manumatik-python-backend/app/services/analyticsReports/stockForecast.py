@@ -3,23 +3,42 @@ Stock forecast report: parts at risk of running out in the near future.
 Each numbered block shows the database query and the Pandas work done on it.
 """
 
-# 0.Dependencies - Pandas, Manila timezone, and the shared MySQL engine.
+# 0.Dependencies - Pandas, shared date windows, and the shared MySQL engine.
 import pandas as pd
-from datetime import datetime
-import pytz
-from app.database import engine
+
+from app.services.analyticsDashboard import (
+    as_float,
+    as_int,
+    get_range_filter,
+    mysql_connection,
+)
 
 
 # 1.Reports(Stock Forecast) - Showing when parts are likely to run out.
-def get_stock_forecast_analytics():
-    # 1.1 Reports(Stock Forecast) - Work out the 30-day sales window in Manila time.
-    manila_tz = pytz.timezone("Asia/Manila")
-    start_date = (
-        datetime.now(manila_tz) - pd.Timedelta(days=29)
-    ).strftime("%Y-%m-%d")
+def get_stock_forecast_analytics(range_type: str = "month"):
+    # 1.1 Reports(Stock Forecast) - Apply the selected range to the sales window.
+    date_filter = get_range_filter(range_type)
+    window_days = {
+        "today": 1,
+        "week": 7,
+        "month": 30,
+        "year": 365,
+    }.get(range_type, 30)
 
-    # 1.2 Reports(Stock Forecast) - Fetch every part and its recent sale lines.
-    with engine.connect() as conn:
+    with mysql_connection() as conn:
+        # 1.1.1 Reports(Stock Forecast) - All time uses the full sales history span.
+        if range_type == "all":
+            span_df = pd.read_sql(
+                """
+                SELECT COALESCE(DATEDIFF(CURDATE(), MIN(sale_date)) + 1, 30)
+                       AS window_days
+                FROM sales
+                """,
+                conn,
+            )
+            window_days = max(1, as_int(span_df.iloc[0, 0]))
+
+        # 1.2 Reports(Stock Forecast) - Fetch every part and its range sale lines.
         parts_df = pd.read_sql(
             """
             SELECT part_id, part_number, name, category,
@@ -29,7 +48,7 @@ def get_stock_forecast_analytics():
             conn,
         )
         sales_df = pd.read_sql(
-            f"SELECT part_id, quantity FROM sales WHERE sale_date >= '{start_date}'",
+            f"SELECT s.part_id, s.quantity FROM sales s WHERE {date_filter}",
             conn,
         )
 
@@ -37,7 +56,7 @@ def get_stock_forecast_analytics():
     if parts_df.empty:
         return []
 
-    # 1.4 Reports(Stock Forecast) - Sum units sold in the last 30 days per part.
+    # 1.4 Reports(Stock Forecast) - Sum selected-range units sold per part.
     if sales_df.empty:
         recent_df = pd.DataFrame(columns=["part_id", "units_30d"])
     else:
@@ -52,8 +71,8 @@ def get_stock_forecast_analytics():
     merged = parts_df.merge(recent_df, on="part_id", how="left")
     merged["units_30d"] = merged["units_30d"].fillna(0)
 
-    # 1.6 Reports(Stock Forecast) - Average daily sales = 30-day units ÷ 30.
-    merged["avg_daily_sales"] = merged["units_30d"] / 30
+    # 1.6 Reports(Stock Forecast) - Average daily sales uses the selected window.
+    merged["avg_daily_sales"] = merged["units_30d"] / window_days
 
     # 1.7 Reports(Stock Forecast) - Estimate days of stock left at that pace.
     def days_left(row):
@@ -88,13 +107,13 @@ def get_stock_forecast_analytics():
     # 1.11 Reports(Stock Forecast) - Convert rows to JSON-safe records.
     result = forecast.to_dict(orient="records")
     for item in result:
-        item["part_id"] = int(item["part_id"])
-        item["current_stock"] = int(item["current_stock"])
-        item["reorder_level"] = int(item["reorder_level"])
-        item["units_last_30d"] = int(item.pop("units_30d"))
-        item["avg_daily_sales"] = round(float(item["avg_daily_sales"]), 2)
+        item["part_id"] = as_int(item["part_id"])
+        item["current_stock"] = as_int(item["current_stock"])
+        item["reorder_level"] = as_int(item["reorder_level"])
+        item["units_last_30d"] = as_int(item.pop("units_30d"))
+        item["avg_daily_sales"] = round(as_float(item["avg_daily_sales"]), 2)
         days = item["days_until_stockout"]
-        item["days_until_stockout"] = None if pd.isna(days) else int(days)
+        item["days_until_stockout"] = None if pd.isna(days) else as_int(days)
 
     # 1.12 Reports(Stock Forecast) - Final at-risk stockout list.
     return result

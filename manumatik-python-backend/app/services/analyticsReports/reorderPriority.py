@@ -3,23 +3,26 @@ Reorder priority report: low-stock parts ranked by shortage and demand.
 Each numbered block shows the database query and the Pandas work done on it.
 """
 
-# 0.Dependencies - Pandas, Manila timezone, and the shared MySQL engine.
+# 0.Dependencies - Pandas, shared date windows, and the shared MySQL engine.
 import pandas as pd
-from datetime import datetime
-import pytz
-from app.database import engine
+
+from app.services.analyticsDashboard import (
+    as_float,
+    as_int,
+    get_range_filter,
+    mysql_connection,
+)
 
 
 # 1.Reports(Reorder Priority) - Showing what to restock first and how urgently.
-def get_reorder_priority_report_analytics(limit: int = 5):
-    # 1.1 Reports(Reorder Priority) - Work out the 30-day sales window in Manila time.
-    manila_tz = pytz.timezone("Asia/Manila")
-    start_date = (
-        datetime.now(manila_tz) - pd.Timedelta(days=29)
-    ).strftime("%Y-%m-%d")
+def get_reorder_priority_report_analytics(
+    limit: int = 5, range_type: str = "month"
+):
+    # 1.1 Reports(Reorder Priority) - Use the selected range for demand ranking.
+    date_filter = get_range_filter(range_type)
 
     # 1.2 Reports(Reorder Priority) - Fetch parts that are at or below reorder level.
-    with engine.connect() as conn:
+    with mysql_connection() as conn:
         parts_df = pd.read_sql(
             """
             SELECT part_id, part_number, name, category, quantity, reorder_level, price
@@ -29,9 +32,9 @@ def get_reorder_priority_report_analytics(limit: int = 5):
             conn,
         )
 
-        # 1.3 Reports(Reorder Priority) - Fetch recent sales to rank by demand.
+        # 1.3 Reports(Reorder Priority) - Fetch sales to rank by range demand.
         sales_df = pd.read_sql(
-            f"SELECT part_id, quantity FROM sales WHERE sale_date >= '{start_date}'",
+            f"SELECT s.part_id, s.quantity FROM sales s WHERE {date_filter}",
             conn,
         )
 
@@ -39,7 +42,7 @@ def get_reorder_priority_report_analytics(limit: int = 5):
     if parts_df.empty:
         return []
 
-    # 1.5 Reports(Reorder Priority) - Sum recent units sold per part.
+    # 1.5 Reports(Reorder Priority) - Sum range units sold per part.
     if sales_df.empty:
         recent_df = pd.DataFrame(columns=["part_id", "recent_sales"])
     else:
@@ -77,13 +80,13 @@ def get_reorder_priority_report_analytics(limit: int = 5):
     # 1.10 Reports(Reorder Priority) - Convert rows to JSON-safe records.
     result = merged.to_dict(orient="records")
     for item in result:
-        item["part_id"] = int(item["part_id"])
-        item["quantity"] = int(item["quantity"])
-        item["reorder_level"] = int(item["reorder_level"])
-        item["deficit"] = int(item["deficit"])
-        item["recent_sales"] = int(item["recent_sales"])
-        item["price"] = float(item["price"])
-        item["restock_cost"] = float(item["restock_cost"])
+        item["part_id"] = as_int(item["part_id"])
+        item["quantity"] = as_int(item["quantity"])
+        item["reorder_level"] = as_int(item["reorder_level"])
+        item["deficit"] = as_int(item["deficit"])
+        item["recent_sales"] = as_int(item["recent_sales"])
+        item["price"] = as_float(item["price"])
+        item["restock_cost"] = as_float(item["restock_cost"])
 
     # 1.11 Reports(Reorder Priority) - Final prioritized restock list.
     return result
